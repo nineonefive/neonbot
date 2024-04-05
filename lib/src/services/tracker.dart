@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 
-import 'package:chaleno/chaleno.dart';
+import 'package:chaleno/chaleno.dart' show Parser, Chaleno;
 import 'package:logging/logging.dart';
 
 import '../models/match_schedule.dart';
@@ -100,9 +101,14 @@ class TrackerApi {
 
     var url =
         Uri.https('tracker.gg', '/valorant/premier/teams/$uuid').toString();
-    var data = (await _worker.getValorantPremierData(url) ??
-            (throw TrackerApiException(404)))["detailedRoster"]
-        as Map<String, dynamic>;
+    var response = await _worker.getValorantPremierData(url);
+    if (response == null) {
+      logger.shout("Failed to search for team $uuid, response is null");
+      throw TrackerApiException(500);
+    }
+
+    logger.fine("Got data for team $uuid");
+    var data = response["detailedRoster"] as Map<String, dynamic>;
 
     if (data["id"] == null) throw TrackerApiException(403);
 
@@ -114,6 +120,7 @@ class TrackerApi {
         division: data["divisionName"],
         imageUrl: data["icon"]["imageUrl"] as String);
 
+    logger.fine("Creating team: $team");
     teamCache[team.id] = team;
     return team;
   }
@@ -133,25 +140,39 @@ class TrackerApi {
             'tracker.gg', '/valorant/premier/standings', {'region': region})
         .toString();
     logger.fine("Fetching schedule for $region at $url");
-    var data = (await _worker.getValorantPremierData(url) ??
-        (throw TrackerApiException(404)))["schedules"] as Map<String, dynamic>;
+    var response = await _worker.getValorantPremierData(url);
+
+    if (response == null) {
+      logger.shout("Received null response for schedule");
+      throw TrackerApiException(500);
+    }
+
+    var data = response["schedules"] as Map<String, dynamic>;
 
     // Process the matches
     var matchDicts =
         (data.values.first as Map<String, dynamic>)["events"] as List<dynamic>;
-    var matches = matchDicts.whereType<Map<String, dynamic>>().map((m) {
-      var matchType = switch (m["typeName"]) {
-        "Scrim" => MatchType.scrim,
-        "Match" => MatchType.match,
-        "Tournament" => MatchType.playoffs,
-        _ => throw TrackerApiException(500)
-      };
+    var matches = matchDicts
+        .whereType<Map<String, dynamic>>()
+        .map((m) {
+          var matchType = switch (m["typeName"]) {
+            "Scrim" => MatchType.scrim,
+            "Match" => MatchType.match,
+            "Tournament" => MatchType.playoffs,
+            _ => MatchType.unknown
+          };
 
-      var time = DateTime.parse(m["startTime"]);
-      var map = ValorantMap.getByName(
-          (matchType == MatchType.playoffs) ? null : m["name"]);
-      return Match(matchType, time, map);
-    }).toList();
+          if (matchType == MatchType.unknown) {
+            logger.warning("Unknown match type: ${m["typeName"]}");
+          }
+
+          var time = DateTime.parse(m["startTime"]);
+          var map = ValorantMap.getByName(
+              (matchType == MatchType.playoffs) ? null : m["name"]);
+          return Match(matchType, time, map);
+        })
+        .where((m) => m.matchType != MatchType.unknown)
+        .toList();
 
     var schedule = MatchSchedule(matches);
     scheduleCache[region] = schedule;
@@ -161,6 +182,7 @@ class TrackerApi {
 
 /// Worker that will download and parse large webpages for us
 class TrackerWorker {
+  static final Logger logger = Logger("TrackerWorker");
   final SendPort _commands;
   final ReceivePort _responses;
   final Map<int, Completer<Object?>> _activeRequests = {};
@@ -220,8 +242,11 @@ class TrackerWorker {
   }
 
   static Future<Map<String, dynamic>> parseTrackerPage(Uri url) async {
-    var parser = await Chaleno().load(url.toString());
-    var scriptTags = parser?.getElementsByTagName('script') ?? [];
+    // var parser = await Chaleno().load(url.toString());
+    var result = await Process.run("python", ["tracker.py", url.toString()]);
+    var parser = Parser(result.stdout);
+
+    var scriptTags = parser.getElementsByTagName('script') ?? [];
     for (var scriptTag in scriptTags) {
       // Ignore external scripts like cloudflare
       if (scriptTag.src == null) {
@@ -234,6 +259,14 @@ class TrackerWorker {
       }
     }
 
+    var text = parser.html;
+    if (text?.contains("[Error]: 403 Client Error") ?? false) {
+      // We love cloudflare
+      print("Cloud flare is stopping us");
+      throw TrackerApiException(403);
+    }
+
+    print("No script tags found in webpage $url. Response: ${text ?? "null"}");
     throw TrackerApiException(404);
   }
 

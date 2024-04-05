@@ -23,12 +23,27 @@ class MatchScheduler {
 
   MatchScheduler._(this.client) {
     // Schedule an update every 5 minutes and also right now
-    Future.delayed(Duration(seconds: 3), tick);
-    timer = Timer(Duration(minutes: 5), tick);
+    Future.delayed(Duration(seconds: 3), tryTick);
+    timer = Timer(Duration(minutes: 5), tryTick);
   }
 
   static void init(NyxxGateway client) {
     _instance = MatchScheduler._(client);
+  }
+
+  void tryTick() async {
+    try {
+      tick();
+    } catch (e) {
+      if (e is TrackerApiException) {
+        if (e.statusCode == 403) {
+          logger.warning(
+              "Cloud flare is stopping us from retrieving match schedule");
+        } else {
+          logger.warning("Received tracker error ${e.statusCode}");
+        }
+      }
+    }
   }
 
   void tick() async {
@@ -118,6 +133,9 @@ class MatchScheduler {
           description += "Does not count towards premier score";
         case MatchType.match:
           description += "Gain 100 points for a win, or 25 for losing";
+        default:
+          throw Exception(
+              "Unexpected match type when scheduling: ${match.matchType}");
       }
 
       var event = await guild.scheduledEvents.create(ScheduledEventBuilder(

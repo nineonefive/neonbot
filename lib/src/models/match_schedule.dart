@@ -4,7 +4,8 @@ import 'premier_team.dart';
 enum MatchType {
   scrim("Scrim", Duration(hours: 1), Duration(hours: 1)),
   match("Match", Duration(hours: 1), Duration(hours: 1)),
-  playoffs("Playoffs", Duration(minutes: 15), Duration(hours: 2));
+  playoffs("Playoffs", Duration(minutes: 15), Duration(hours: 2)),
+  unknown("Unknown", Duration.zero, Duration.zero);
 
   const MatchType(this.name, this.queueWindow, this.expectedDuration);
 
