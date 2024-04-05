@@ -1,63 +1,62 @@
 library neonbot;
 
+import 'dart:async';
+
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import 'commands.dart';
+import 'events.dart';
+import 'services/db.dart';
 
 // Determined with the discord website
-final Flags<GatewayIntents> intents =
-    GatewayIntents.guildMessageReactions | GatewayIntents.guildMessages;
+final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
+    GatewayIntents.guilds |
+    GatewayIntents.guildMessages |
+    GatewayIntents.guildScheduledEvents;
 
 class NeonBot {
-  static final _commands = CommandsPlugin(prefix: slashCommand());
-  static NeonBot? _instance;
-  static NeonBot get instance => _instance!;
-  static final logger = Logger('neonbot');
-  static Level _logLevel = Level.INFO;
+  static final NeonBot instance = NeonBot._();
 
+  static Level _logLevel = Level.INFO;
   static Level get logLevel => _logLevel;
   static set logLevel(Level level) {
     _logLevel = level;
-    logger.level = level;
+    instance.logger.level = level;
   }
 
+  NeonBot._();
+
+  final logger = Logger('neonbot');
   late final NyxxGateway client;
   late final User botUser;
-  late final Logger log;
 
   /// Connects to discord using the provided token [token]
-  static Future<NeonBot> connect(String token) async {
-    // Only connect once. If we already have an active client, return it
-    if (_instance != null) {
-      return Future.value(_instance);
-    }
+  ///
+  /// Also initializes any needed services
+  Future<void> connect(String token) async {
+    // Connect to our local sqlite database
+    DatabaseService.instance.init('local_db.db');
+    Finalizer<Database> finalizer = Finalizer<Database>((db) => db.dispose());
+    finalizer.attach(DatabaseService.service!, DatabaseService.service!,
+        detach: DatabaseService.instance);
 
     // Register all slash commands before the bot connects
-    var commands = getAllCommands();
-    logger.info("Registering commands");
-    for (var cmd in commands) {
-      _commands.addCommand(cmd);
-    }
-
-    _commands.onCommandError.listen((error) {
-      if (error is CheckFailedException) {
-        error.context.respond(
-            MessageBuilder(content: ":x: Sorry, you can't use that command!"));
-      }
-      logger.info(error);
-    });
+    final commands = CommandsPlugin(prefix: slashCommand())
+      ..addCommand(config)
+      ..addCommand(team)
+      ..onCommandError.listen(errorHandler);
 
     // Finally connect using our api token
-    var client = await Nyxx.connectGateway(token, intents,
-        options: GatewayClientOptions(plugins: [_commands]));
+    var client = await Nyxx.connectGateway(
+        token, GatewayIntents.allUnprivileged,
+        options: GatewayClientOptions(plugins: [commands]));
     var botUser = await client.users.fetchCurrentUser();
     logger.info("Logged in as ${botUser.username}");
 
-    // Return the instance
-    _instance = NeonBot._create(client, botUser);
-    return Future.value(_instance);
+    // Connect events to the event bus
+    client.onGuildCreate.listen(eventBus.fire);
+    client.onInteractionCreate.listen(eventBus.fire);
   }
-
-  NeonBot._create(this.client, this.botUser);
 }

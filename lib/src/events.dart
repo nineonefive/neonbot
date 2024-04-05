@@ -1,6 +1,14 @@
-/// Event for when the bot is invited to server [serverId]
-class InvitedToServerEvent {
-  final String serverId;
+import 'dart:async';
 
-  InvitedToServerEvent(this.serverId);
+import 'package:event_bus/event_bus.dart';
+import 'package:neonbot/src/events/interaction_create.dart';
+
+final eventBus = EventBus();
+
+extension InteractComponent on EventBus {
+  Stream<InteractionComponentCreatedEvent> onInteractionComponentCreated(
+      String topic) {
+    return on<InteractionComponentCreatedEvent>()
+        .where((event) => event.topic == topic);
+  }
 }

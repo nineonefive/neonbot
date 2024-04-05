@@ -1,83 +1,56 @@
+import 'dart:async';
 import 'dart:convert';
 
-import 'package:neonbot/src/db.dart';
-import 'package:neonbot/src/premier_team.dart';
 import 'package:nyxx/nyxx.dart';
-import 'package:sqlite3/common.dart';
+
+import 'models/premier_team.dart';
+import 'services/db.dart';
+import 'services/tracker.dart';
+import 'util.dart' show maybeNullSnowflake;
 
 final table = Tables.GuildPreferences;
+final logger = Logger("GuildPreferences");
 
 class GuildPreferences {
   final Snowflake guildId;
-  PremierTeam? _premierTeam;
+  String? premierTeamId;
   Snowflake? announcementsChannel;
+  Snowflake? voiceChannel;
 
-  Future<PremierTeam>? teamPromise;
+  Future<PremierTeam?> get premierTeam async {
+    return (premierTeamId != null)
+        ? TrackerApi.service.searchByUuid(premierTeamId!)
+        : null;
+  }
+
+  Future<String?> get zone async {
+    var team = await premierTeam;
+    return team?.zone;
+  }
 
   GuildPreferences(this.guildId,
-      {String? premierTeamUuid, Snowflake? announcementsChannel}) {
-    // Try to set premier team if we have it saved
-    if (premierTeamUuid != null) {
-      // Todo: possibly handle error here and log it
-      teamPromise = TrackerApi.searchByUuid(premierTeamUuid)
-          .then((team) => _premierTeam = team);
-    }
-  }
-
-  PremierTeam? get premierTeam => _premierTeam;
-
-  void set premierTeam(PremierTeam? team) {
-    _premierTeam = team;
-    persistToDb();
-  }
+      {this.premierTeamId, this.announcementsChannel, this.voiceChannel});
 
   void persistToDb() {
-    Db.db!.execute("UPDATE ${table.name} SET preferences = ? WHERE guildId = ?",
+    DatabaseService.service!.execute(
+        "UPDATE ${table.name} SET preferences = ? WHERE guildId = ?",
         [toJson(), guildId.value]);
   }
 
   String toJson() {
     return jsonEncode({
-      "premierTeam": premierTeam?.uuid,
-      "announcementsChannel": announcementsChannel
+      "guildId": guildId.value,
+      "premierTeam": premierTeamId,
+      "announcementsChannel": announcementsChannel?.value,
+      "voiceChannel": voiceChannel?.value
     });
   }
 
-  static final Map<Snowflake, GuildPreferences> _loadedPreferences = {};
-
-  static Future<GuildPreferences> getForGuild(Snowflake guildId) async {
-    if (_loadedPreferences.containsKey(guildId)) {
-      return _loadedPreferences[guildId]!;
-    }
-
-    _loadedPreferences[guildId] = await loadFromDatabase(guildId);
-    return _loadedPreferences[guildId]!;
-  }
-
-  static Future<GuildPreferences> loadFromDatabase(Snowflake guildId) async {
-    GuildPreferences guildPreference;
-
-    Row? row;
-    try {
-      row = Db.db!.select(
-          "SELECT preferences FROM ${table.name} WHERE guildId = ?",
-          [guildId.value]).firstOrNull;
-    } catch (error) {
-      row = null;
-    }
-
-    if (row == null) {
-      guildPreference = GuildPreferences(guildId);
-      Db.db!.execute(
-          "INSERT INTO ${table.name} (guildId, preferences) VALUES (?, ?)",
-          [guildId.value, guildPreference.toJson()]);
-    } else {
-      var preferences = jsonDecode(row['preferences']) as Map<String, dynamic>;
-      guildPreference = GuildPreferences(guildId,
-          premierTeamUuid: preferences["premierTeam"],
-          announcementsChannel: preferences["announcementsChannel"]);
-    }
-
-    return guildPreference;
+  static GuildPreferences fromJson(String json) {
+    var data = jsonDecode(json);
+    return GuildPreferences(Snowflake(data["guildId"]),
+        premierTeamId: data["premierTeam"],
+        announcementsChannel: maybeNullSnowflake(data["announcementsChannel"]),
+        voiceChannel: maybeNullSnowflake(data["voiceChannel"]));
   }
 }

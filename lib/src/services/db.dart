@@ -34,23 +34,28 @@ class Table {
 class Tables {
   static final GuildPreferences = Table("guild_preferences", {
     "id": Field.INTEGER.asPrimary,
-    "guildId": Field.TEXT.notNull.unique,
+    "guildId": Field.INTEGER.notNull.unique,
     "preferences": Field.TEXT.notNull
   });
 }
 
-class Db {
-  static Database? db;
+class DatabaseService {
+  static DatabaseService instance = DatabaseService._();
+  DatabaseService._();
 
-  static void init() {
-    db = sqlite3.open('local_db.db');
+  static Database? get service => instance._db;
+
+  Database? _db;
+
+  void init(String databasePath) {
+    _db = sqlite3.open(databasePath);
 
     createTable(Tables.GuildPreferences);
   }
 
   /// Creates the table defined by [schema]
-  static void createTable(Table schema) => db!.execute(schema.create);
+  void createTable(Table schema) => _db!.execute(schema.create);
 
   /// Closes the current connection to the database
-  static void close() => db?.dispose();
+  void close() => _db?.dispose();
 }

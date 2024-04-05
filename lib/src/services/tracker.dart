@@ -1,66 +1,49 @@
-import 'package:chaleno/chaleno.dart';
 import 'dart:convert';
 
+import 'package:chaleno/chaleno.dart';
+
+import '../models/match_schedule.dart';
+import '../models/premier_team.dart';
+
+/// Exception for validly formatted riot ids that don't have an
+/// associated team.
 class PremierTeamDoesntExistException implements Exception {
   final String team;
 
   const PremierTeamDoesntExistException(this.team);
 }
 
+/// Exception for invalidly formatted riot id
 class InvalidRiotIdException implements Exception {
   final String id;
 
   const InvalidRiotIdException(this.id);
 }
 
+/// Miscellaneous tracker errors
 class TrackerApiException implements Exception {
   final int statusCode;
 
   const TrackerApiException(this.statusCode);
 }
 
-final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$');
-
-class PremierTeam {
-  final String uuid;
-  final String riotId;
-  final String zone;
-  final String zoneName;
-
-  int rank = 0;
-  int leagueScore = 0;
-  String division = '';
-
-  /// Last time we fetched data from tracker.gg
-  late DateTime lastUpdated;
-
-  PremierTeam(this.uuid, this.riotId,
-      {this.zone = 'NA_US_EAST',
-      this.zoneName = 'US East',
-      this.rank = 0,
-      this.leagueScore = 0,
-      this.division = ''}) {
-    if (!riotIdPattern.hasMatch(riotId)) {
-      throw InvalidRiotIdException(riotId);
-    }
-
-    lastUpdated = DateTime.now();
-  }
-
-  @override
-  String toString() {
-    return 'PremierTeam($riotId)';
-  }
-
-  @override
-  int get hashCode => uuid.hashCode;
-
-  @override
-  bool operator ==(Object other) => other is PremierTeam && other.uuid == uuid;
-}
-
 class TrackerApi {
-  static Future<PremierTeam> searchByRiotId(String riotId) async {
+  static final TrackerApi service = TrackerApi._();
+  static final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$');
+
+  // Maps team id to team
+  Map<String, PremierTeam> teamCache = {};
+
+  // Maps region id to upcoming matches
+  Map<String, MatchSchedule> scheduleCache = {};
+
+  TrackerApi._();
+
+  /// Tries to find a premier team using the [riotId].
+  ///
+  /// This won't load all data (such as zone, standings). For that, you need
+  /// to follow up by searching for the uuid
+  Future<PremierTeam> searchByRiotId(String riotId) async {
     if (!riotIdPattern.hasMatch(riotId)) {
       throw InvalidRiotIdException(riotId);
     }
@@ -86,7 +69,16 @@ class TrackerApi {
     throw PremierTeamDoesntExistException(riotId);
   }
 
-  static Future<PremierTeam> searchByUuid(String uuid) async {
+  Future<PremierTeam> searchByUuid(String uuid) async {
+    if (teamCache.containsKey(uuid)) {
+      var team = teamCache[uuid]!;
+      var age = DateTime.now().difference(team.lastUpdated);
+
+      if (team.isLoaded && age < const Duration(minutes: 5)) {
+        return team;
+      }
+    }
+
     var url = Uri.https('tracker.gg', '/valorant/premier/teams/$uuid');
 
     var parser = await Chaleno().load(url.toString());
@@ -100,7 +92,7 @@ class TrackerApi {
           var data = json.decode(text)["valorantPremier"]["detailedRoster"]
               as Map<String, dynamic>;
 
-          return PremierTeam(
+          var team = PremierTeam(
             data["id"],
             data["name"],
             zone: data["zone"],
@@ -109,10 +101,27 @@ class TrackerApi {
             leagueScore: data["leagueScore"],
             division: data["divisionName"],
           );
+
+          teamCache[team.id] = team;
+          return team;
         }
       }
     }
 
     throw TrackerApiException(404);
+  }
+
+  /// Gets the upcoming matches for the given region [region]
+  Future<MatchSchedule> getSchedule(String region) async {
+    if (scheduleCache.containsKey(region)) {
+      var schedule = scheduleCache[region]!;
+      var age = DateTime.now().difference(schedule.lastUpdated);
+      if (age < const Duration(hours: 1)) {
+        return schedule;
+      }
+    }
+
+    // Todo: Retrieve schedule
+    return MatchSchedule([]);
   }
 }

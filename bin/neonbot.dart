@@ -1,10 +1,8 @@
-import 'package:args/args.dart';
-import 'package:neonbot/src/db.dart';
 import 'dart:io' show Platform;
-import 'package:neonbot/src/neonbot.dart';
-import 'package:neonbot/src/premier_team.dart';
+
+import 'package:args/args.dart';
 import 'package:logging/logging.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:neonbot/src/neonbot.dart';
 
 const String version = '0.0.1';
 
@@ -39,6 +37,7 @@ void main(List<String> arguments) async {
 
     Level logLevel = Level.INFO;
     if (results.wasParsed('debug')) {
+      print("Using debug mode");
       logLevel = Level.FINE;
     }
     hierarchicalLoggingEnabled = true;
@@ -56,21 +55,12 @@ void main(List<String> arguments) async {
       print(msg);
     });
 
-    Db.init();
-    launchBot();
-
-    Finalizer<Database> _finalizer = Finalizer<Database>((db) => db.dispose());
-    _finalizer.attach(Db.db!, Db.db!, detach: Db);
-
-    // Get positional arguments with results.rest
+    // Connect the bot to discord
+    await NeonBot.instance.connect(Secrets.discordApiToken);
   } on FormatException catch (e) {
     // Print usage information if an invalid argument was provided.
     print(e.message);
     print('');
     printUsage(argParser);
   }
-}
-
-void launchBot() async {
-  var neonBot = await NeonBot.connect(Secrets.discordApiToken);
 }
