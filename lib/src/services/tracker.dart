@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:chaleno/chaleno.dart';
 import 'package:logging/logging.dart';
@@ -30,8 +32,18 @@ class TrackerApiException implements Exception {
 }
 
 class TrackerApi {
-  static final TrackerApi service = TrackerApi._();
+  static const teamCacheTime = Duration(minutes: 5);
+  static const scheduleCacheTime = Duration(hours: 1);
   static final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$');
+
+  static late final TrackerApi service;
+
+  static void init() {
+    service = TrackerApi._();
+  }
+
+  late final TrackerWorker _worker;
+  late final Finalizer<TrackerWorker> _finalizer;
 
   // Maps team id to team
   Map<String, PremierTeam> teamCache = {};
@@ -40,13 +52,19 @@ class TrackerApi {
   Map<String, MatchSchedule> scheduleCache = {};
   final Logger logger = Logger("TrackerApi");
 
-  TrackerApi._();
+  TrackerApi._() {
+    TrackerWorker.spawn().then((w) {
+      _worker = w;
+      _finalizer = Finalizer<TrackerWorker>((w) => w.close());
+      _finalizer.attach(this, _worker, detach: this);
+    });
+  }
 
   /// Tries to find a premier team using the [riotId].
   ///
   /// This won't load all data (such as zone, standings). For that, you need
   /// to follow up by searching for the uuid
-  Future<PremierTeam> searchByRiotId(String riotId) async {
+  Future<PartialPremierTeam> searchByRiotId(String riotId) async {
     if (!riotIdPattern.hasMatch(riotId)) {
       throw InvalidRiotIdException(riotId);
     }
@@ -64,7 +82,7 @@ class TrackerApi {
           var team = resultSet["results"][0];
           var uuid = team["id"];
           riotId = team["name"];
-          return PremierTeam(uuid, riotId);
+          return PartialPremierTeam(uuid, riotId);
         }
       }
     }
@@ -77,28 +95,24 @@ class TrackerApi {
       var team = teamCache[uuid]!;
       var age = DateTime.now().difference(team.lastUpdated);
 
-      if (team.isLoaded && age < const Duration(minutes: 5)) {
-        return team;
-      }
+      if (age < teamCacheTime) return team;
     }
 
-    var url = Uri.https('tracker.gg', '/valorant/premier/teams/$uuid');
-    var data =
-        (await parseTrackerPage(url))["detailedRoster"] as Map<String, dynamic>;
+    var url =
+        Uri.https('tracker.gg', '/valorant/premier/teams/$uuid').toString();
+    var data = (await _worker.getValorantPremierData(url) ??
+            (throw TrackerApiException(404)))["detailedRoster"]
+        as Map<String, dynamic>;
 
-    if (data["id"] == null) {
-      throw TrackerApiException(403);
-    }
+    if (data["id"] == null) throw TrackerApiException(403);
 
-    var team = PremierTeam(
-      data["id"],
-      data["name"],
-      zone: data["zone"],
-      zoneName: data["zoneName"],
-      rank: data["rank"],
-      leagueScore: data["leagueScore"],
-      division: data["divisionName"],
-    );
+    var team = PremierTeam(data["id"], data["name"],
+        zone: data["zone"],
+        zoneName: data["zoneName"],
+        rank: data["rank"],
+        leagueScore: data["leagueScore"],
+        division: data["divisionName"],
+        imageUrl: data["icon"]["imageUrl"] as String);
 
     teamCache[team.id] = team;
     return team;
@@ -109,16 +123,20 @@ class TrackerApi {
     if (scheduleCache.containsKey(region)) {
       var schedule = scheduleCache[region]!;
       var age = DateTime.now().difference(schedule.lastUpdated);
-      if (age < const Duration(hours: 1)) {
+      if (age < scheduleCacheTime) {
         return schedule;
       }
     }
 
+    // Download the data with the worker since it's intensive
     var url = Uri.https(
-        'tracker.gg', '/valorant/premier/standings', {'region': region});
+            'tracker.gg', '/valorant/premier/standings', {'region': region})
+        .toString();
     logger.fine("Fetching schedule for $region at $url");
-    var data =
-        (await parseTrackerPage(url))["schedules"] as Map<String, dynamic>;
+    var data = (await _worker.getValorantPremierData(url) ??
+        (throw TrackerApiException(404)))["schedules"] as Map<String, dynamic>;
+
+    // Process the matches
     var matchDicts =
         (data.values.first as Map<String, dynamic>)["events"] as List<dynamic>;
     var matches = matchDicts.whereType<Map<String, dynamic>>().map((m) {
@@ -139,8 +157,69 @@ class TrackerApi {
     scheduleCache[region] = schedule;
     return schedule;
   }
+}
 
-  Future<Map<String, dynamic>> parseTrackerPage(Uri url) async {
+/// Worker that will download and parse large webpages for us
+class TrackerWorker {
+  final SendPort _commands;
+  final ReceivePort _responses;
+  final Map<int, Completer<Object?>> _activeRequests = {};
+  int _idCounter = 0;
+  bool _closed = false;
+
+  Future<Map<String, dynamic>?> getValorantPremierData(String url) async {
+    if (_closed) throw StateError('Closed');
+    final completer = Completer<Object?>.sync();
+    final id = _idCounter++;
+    _activeRequests[id] = completer;
+    _commands.send((id, url));
+    return await completer.future as Map<String, dynamic>?;
+  }
+
+  static Future<TrackerWorker> spawn() async {
+    // Create a receive port and add its initial message handler
+    final initPort = RawReceivePort();
+    final connection = Completer<(ReceivePort, SendPort)>.sync();
+    initPort.handler = (initialMessage) {
+      final commandPort = initialMessage as SendPort;
+      connection.complete((
+        ReceivePort.fromRawReceivePort(initPort),
+        commandPort,
+      ));
+    };
+
+    // Spawn the isolate.
+    try {
+      await Isolate.spawn(_startRemoteIsolate, (initPort.sendPort));
+    } on Object {
+      initPort.close();
+      rethrow;
+    }
+
+    final (ReceivePort receivePort, SendPort sendPort) =
+        await connection.future;
+
+    return TrackerWorker._(receivePort, sendPort);
+  }
+
+  TrackerWorker._(this._responses, this._commands) {
+    _responses.listen(_handleResponsesFromIsolate);
+  }
+
+  void _handleResponsesFromIsolate(dynamic message) {
+    final (int id, Object? response) = message as (int, Object?);
+    final completer = _activeRequests.remove(id)!;
+
+    if (response is RemoteError) {
+      completer.completeError(response);
+    } else {
+      completer.complete(response);
+    }
+
+    if (_closed && _activeRequests.isEmpty) _responses.close();
+  }
+
+  static Future<Map<String, dynamic>> parseTrackerPage(Uri url) async {
     var parser = await Chaleno().load(url.toString());
     var scriptTags = parser?.getElementsByTagName('script') ?? [];
     for (var scriptTag in scriptTags) {
@@ -156,5 +235,38 @@ class TrackerApi {
     }
 
     throw TrackerApiException(404);
+  }
+
+  static void _handleCommandsToIsolate(
+    ReceivePort receivePort,
+    SendPort sendPort,
+  ) {
+    receivePort.listen((message) async {
+      if (message == 'shutdown') {
+        receivePort.close();
+        return;
+      }
+      final (int id, String url) = message as (int, String);
+      try {
+        final data = await parseTrackerPage(Uri.parse(url));
+        sendPort.send((id, data));
+      } catch (e) {
+        sendPort.send((id, RemoteError(e.toString(), '')));
+      }
+    });
+  }
+
+  static void _startRemoteIsolate(SendPort sendPort) {
+    final receivePort = ReceivePort();
+    sendPort.send(receivePort.sendPort);
+    _handleCommandsToIsolate(receivePort, sendPort);
+  }
+
+  void close() {
+    if (!_closed) {
+      _closed = true;
+      _commands.send('shutdown');
+      if (_activeRequests.isEmpty) _responses.close();
+    }
   }
 }

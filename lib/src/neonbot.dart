@@ -11,6 +11,7 @@ import 'commands.dart';
 import 'events.dart';
 import 'services/db.dart';
 import 'services/scheduler.dart';
+import 'services/tracker.dart';
 
 // Determined with the discord website
 final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
@@ -66,5 +67,6 @@ class NeonBot {
     client.onInteractionCreate.listen(eventBus.fire);
 
     MatchScheduler.init(client);
+    TrackerApi.init();
   }
 }

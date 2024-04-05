@@ -4,3 +4,4 @@
 .discord
 api_keys.json
 *.db
+deploy/*

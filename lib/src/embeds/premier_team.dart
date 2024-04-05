@@ -8,21 +8,22 @@ extension PremierTeamEmbeddable on PremierTeam {
   EmbedBuilder get asEmbed {
     var description = [
       "**Rank**: \\#$rank",
-      "**Division**: $division",
       "**Season points**: $leagueScore",
+      "**Division**: $division",
       "**Zone**: $zoneName"
     ].join("\n");
 
-    var footer = EmbedFooterBuilder(
-        text:
-            "Last updated ${DateTime.now().difference(lastUpdated).formatted}");
+    var timeString = DateTime.now().difference(lastUpdated).formatted;
+    timeString = timeString == "now" ? timeString : "$timeString ago";
+    var footer = EmbedFooterBuilder(text: "Last updated $timeString");
 
     var embed = EmbedBuilder(
-        color: Colors.primary,
         title: riotId,
-        url: Uri.https('tracker.gg', '/valorant/premier/teams/$id'),
         description: description,
-        footer: footer);
+        footer: footer,
+        color: Colors.primary,
+        url: Uri.https('tracker.gg', '/valorant/premier/teams/$id'),
+        image: EmbedImageBuilder(url: Uri.parse(imageUrl)));
 
     return embed;
   }

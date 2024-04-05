@@ -1,15 +1,16 @@
-import 'package:neonbot/src/style.dart';
-
+import '../style.dart';
 import 'premier_team.dart';
 
 enum MatchType {
-  scrim("Scrim"),
-  match("Match"),
-  playoffs("Playoffs");
+  scrim("Scrim", Duration(hours: 1), Duration(hours: 1)),
+  match("Match", Duration(hours: 1), Duration(hours: 1)),
+  playoffs("Playoffs", Duration(minutes: 15), Duration(hours: 2));
 
-  const MatchType(this.name);
+  const MatchType(this.name, this.queueWindow, this.expectedDuration);
 
   final String name;
+  final Duration queueWindow;
+  final Duration expectedDuration;
 }
 
 class Match {
@@ -62,9 +63,9 @@ class MatchSchedule {
       matches.where((m) => m.time.isAfter(DateTime.now()));
 
   Iterable<Match> get thisWeek {
-    var nextMonday = DateTime.now()
+    var nextTuesday = DateTime.now()
         .subtract(Duration(days: DateTime.now().weekday - 1))
-        .add(Duration(days: 7));
-    return upcomingMatches.where((m) => m.time.isBefore(nextMonday));
+        .add(Duration(days: 8));
+    return upcomingMatches.where((m) => m.time.isBefore(nextTuesday));
   }
 }

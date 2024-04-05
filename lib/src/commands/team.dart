@@ -4,18 +4,19 @@ import 'package:nyxx_commands/nyxx_commands.dart';
 import '../embeds.dart';
 import '../services/preferences.dart';
 
-final team = ChatCommand('team', "Gets the current premier team details",
-    (ChatContext context) async {
-  var preferences = await GuildSettings.service.getForGuild(context.guild!.id);
-  var teamPromise = preferences.premierTeam;
-  var message = await context.respond(
-      MessageBuilder(content: ":hourglass: Loading data from tracker.."));
+final team = ChatCommand(
+    'team',
+    "Gets the current premier team details",
+    id('team', (ChatContext context) async {
+      var gp = await GuildSettings.service.getForGuild(context.guild!.id);
 
-  teamPromise.then((team) {
-    if (team != null) {
+      if (!gp.hasPremierTeam) {
+        await context.respond(MessageBuilder(content: ":x: No team set"));
+        return;
+      }
+
+      var message =
+          await context.respond(MessageBuilder(content: ":hourglass:"));
+      var team = await gp.premierTeam;
       message.edit(MessageUpdateBuilder(content: "", embeds: [team.asEmbed]));
-    } else {
-      message.edit(MessageUpdateBuilder(content: ":x: No team set"));
-    }
-  });
-});
+    }));

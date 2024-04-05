@@ -6,30 +6,39 @@ import 'package:nyxx/nyxx.dart';
 import 'premier_team.dart';
 import '../services/db.dart';
 import '../services/tracker.dart';
-import '../util.dart' show maybeNullSnowflake;
 
 final table = Tables.GuildPreferences;
 final logger = Logger("GuildPreferences");
 
 class GuildPreferences {
   final Snowflake guildId;
-  String? premierTeamId;
-  Snowflake? announcementsChannel;
-  Snowflake? voiceChannel;
+  PartialPremierTeam partialTeam;
+  Snowflake announcementsChannel;
+  Snowflake voiceChannel;
+  Snowflake tagForSignupRole;
 
-  Future<PremierTeam?> get premierTeam async {
-    return (premierTeamId != null)
-        ? TrackerApi.service.searchByUuid(premierTeamId!)
-        : null;
+  bool get hasPremierTeam => partialTeam != PartialPremierTeam.none;
+  bool get hasAnnouncementsChannel => announcementsChannel != Snowflake.zero;
+  bool get hasVoiceChannel => voiceChannel != Snowflake.zero;
+  bool get hasTagForSignupRole => tagForSignupRole != Snowflake.zero;
+
+  Future<PremierTeam> get premierTeam async {
+    return hasPremierTeam
+        ? await TrackerApi.service.searchByUuid(partialTeam.id)
+        : throw Exception("Calling get premierTeam on a guild without one set");
   }
 
-  Future<String?> get zone async {
+  Future<String> get zone async {
+    if (!hasPremierTeam) return "NA_US_EAST";
     var team = await premierTeam;
-    return team?.zone;
+    return team.zone;
   }
 
   GuildPreferences(this.guildId,
-      {this.premierTeamId, this.announcementsChannel, this.voiceChannel});
+      {this.partialTeam = PartialPremierTeam.none,
+      this.announcementsChannel = Snowflake.zero,
+      this.voiceChannel = Snowflake.zero,
+      this.tagForSignupRole = Snowflake.zero});
 
   void persistToDb() {
     DatabaseService.service!.execute(
@@ -40,17 +49,22 @@ class GuildPreferences {
   String toJson() {
     return jsonEncode({
       "guildId": guildId.value,
-      "premierTeam": premierTeamId,
-      "announcementsChannel": announcementsChannel?.value,
-      "voiceChannel": voiceChannel?.value
+      "premierTeamId": partialTeam.id,
+      "premierTeamName": partialTeam.name,
+      "announcementsChannel": announcementsChannel.value,
+      "voiceChannel": voiceChannel.value,
+      "tagForSignupRole": tagForSignupRole.value
     });
   }
 
   static GuildPreferences fromJson(String json) {
     var data = jsonDecode(json);
+    var team =
+        PartialPremierTeam(data["premierTeamId"], data["premierTeamName"]);
     return GuildPreferences(Snowflake(data["guildId"]),
-        premierTeamId: data["premierTeam"],
-        announcementsChannel: maybeNullSnowflake(data["announcementsChannel"]),
-        voiceChannel: maybeNullSnowflake(data["voiceChannel"]));
+        partialTeam: team,
+        announcementsChannel: Snowflake(data["announcementsChannel"]),
+        voiceChannel: Snowflake(data["voiceChannel"]),
+        tagForSignupRole: Snowflake(data["tagForSignupRole"]));
   }
 }

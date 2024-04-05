@@ -9,7 +9,8 @@ import 'db.dart';
 
 class GuildSettings {
   static final service = GuildSettings._();
-  final _interactionMessages = Map<Snowflake, Message>();
+  final Map<Snowflake, InteractionComponentCreatedEvent> _interactionEvents =
+      {};
   final Map<Snowflake, GuildPreferences> _loadedPreferences = {};
 
   GuildSettings._() {
@@ -39,6 +40,10 @@ class GuildSettings {
       return _loadedPreferences[guildId]!;
     }
 
+    return await refresh(guildId);
+  }
+
+  Future<GuildPreferences> refresh(Snowflake guildId) async {
     _loadedPreferences[guildId] = await loadFromDatabase(guildId);
     return _loadedPreferences[guildId]!;
   }
@@ -73,93 +78,64 @@ class GuildSettings {
     return rows.map((row) => Snowflake(row['guildId'])).toList();
   }
 
-  void loadAllPreferences(NyxxGateway client) async {
-    // First pull all known guilds from the database
-    Set<Snowflake> knownIds = Set.from(getAllKnownGuilds());
-
-    // Fetch them into the client through discord
-    for (var guildId in knownIds) {
-      await client.guilds.get(guildId);
-    }
-    Set<Snowflake> actualIds = Set.from(client.guilds.cache.keys);
-
-    for (var guildId in actualIds) {
-      await getForGuild(guildId);
-      logger.fine("Loaded preferences for $guildId");
-    }
-    logger.info("Loaded ${actualIds.length} guild(s)");
-
-    // Finally, we may have some guilds that are in the database that the bot
-    // is no longer in. We can delete them
-    var toDelete = knownIds.difference(actualIds);
-    if (toDelete.isNotEmpty) {
-      logger.fine("Cleaning up ${toDelete.length} guilds");
-      var stmt = DatabaseService.service!
-          .prepare("DELETE FROM ${table.name} WHERE guildId = ?");
-      for (var guildId in toDelete) {
-        stmt.execute([guildId.value]);
-      }
-    }
-  }
-
   void registerComponentInteraction(InteractionComponentCreatedEvent event) {
-    _interactionMessages[event.message.id] = event.message;
+    _interactionEvents[event.message.id] = event;
     logger.fine("Added interaction: ${event.message.id}");
 
-    // Expire the prompt after 1 minute
-    Future.delayed(
-        Duration(minutes: 1), () => expireInteraction(event.message.id));
+    // Expire the prompt after 2 minutes
+    Future.delayed(Duration(minutes: 2),
+        () => expireInteraction(event.message.id, ":x: Expired"));
   }
 
   void handleInteraction(InteractionCreateEvent<dynamic> event) async {
     var interaction = event.interaction;
     if (interaction is MessageComponentInteraction) {
       var message = interaction.message;
-      if (message == null || !_interactionMessages.containsKey(message.id)) {
+      if (message == null || !_interactionEvents.containsKey(message.id)) {
         return;
       }
 
       var gp = await getForGuild(interaction.guildId!);
-      var data = interaction.data;
+      var data = int.parse(interaction.data.values?.firstOrNull ?? "0");
 
-      switch (data.customId) {
+      switch (interaction.data.customId) {
         // When the user submits, we persist the changes and remove the form.
         case "submit":
-          _interactionMessages.remove(message.id);
+          _interactionEvents.remove(message.id);
           // Avoid 10062 error
           await interaction.respond(
-              MessageUpdateBuilder(
-                  content: ":hourglass: Saving...", components: []),
+              MessageUpdateBuilder(content: ":hourglass:", components: []),
               updateMessage: true);
 
+          gp.persistToDb();
           await interaction.updateOriginalResponse(MessageUpdateBuilder(
               content: "", embeds: [await gp.asEmbed], components: []));
-          gp.persistToDb();
+
+        // When the user cancels, we should refresh the preferences from the database
+        case "cancel":
+          expireInteraction(message.id, ":x: Cancelled by user");
 
         // If the user edits other settings, we simply acknowledge them
         case "announcementChannel":
-          Snowflake? channelId;
-          if (data.values != null && data.values!.isNotEmpty) {
-            channelId = Snowflake(int.parse(data.values!.first));
-          }
-          gp.announcementsChannel = channelId;
+          gp.announcementsChannel = Snowflake(data);
           await interaction.acknowledge(updateMessage: true);
         case "voiceChannel":
-          Snowflake? channelId;
-          if (data.values != null && data.values!.isNotEmpty) {
-            channelId = Snowflake(int.parse(data.values!.first));
-          }
-          gp.voiceChannel = channelId;
+          gp.voiceChannel = Snowflake(data);
+          await interaction.acknowledge(updateMessage: true);
+        case "roleMention":
+          gp.tagForSignupRole = Snowflake(data);
           await interaction.acknowledge(updateMessage: true);
       }
     }
   }
 
-  void expireInteraction(Snowflake messageId) async {
-    if (_interactionMessages.containsKey(messageId)) {
-      var message = _interactionMessages.remove(messageId);
-      message!
-          .edit(MessageUpdateBuilder(content: ":x: Expired", components: []));
+  void expireInteraction(Snowflake messageId, String reason) async {
+    if (_interactionEvents.containsKey(messageId)) {
+      var event = _interactionEvents.remove(messageId)!;
+      event.message.edit(MessageUpdateBuilder(content: reason, components: []));
+
+      // Refresh the preferences from db
+      refresh(event.guildId);
     }
   }
 }

@@ -4,6 +4,7 @@ import 'package:nyxx/nyxx.dart';
 
 import '../models/match_schedule.dart';
 import '../neonbot.dart';
+import '../util.dart';
 import 'preferences.dart';
 import 'tracker.dart';
 
@@ -21,7 +22,8 @@ class MatchScheduler {
   final Map<Snowflake, DateTime> _lastUpdated = {};
 
   MatchScheduler._(this.client) {
-    Future.delayed(Duration(seconds: 1), tick);
+    // Schedule an update every 5 minutes and also right now
+    Future.delayed(Duration(seconds: 3), tick);
     timer = Timer(Duration(minutes: 5), tick);
   }
 
@@ -34,18 +36,35 @@ class MatchScheduler {
 
     var guilds = List.of(client.guilds.cache.values);
     for (var guild in guilds) {
+      var gp = await GuildSettings.service.getForGuild(guild.id);
       var lastUpdated =
           _lastUpdated[guild.id] ?? DateTime.fromMicrosecondsSinceEpoch(0);
       var age = DateTime.now().difference(lastUpdated);
 
       // Skip guilds that have been recently updated, as the premier schedule doesn't change
       // that often
-      if (age < const Duration(hours: 1)) {
-        continue;
-      }
+      if (!gp.hasPremierTeam || age < const Duration(hours: 1)) continue;
 
-      await scheduleMatches(guild);
+      var newEvents = await scheduleMatches(guild);
       _lastUpdated[guild.id] = DateTime.now();
+
+      if (gp.hasTagForSignupRole &&
+          gp.hasAnnouncementsChannel &&
+          newEvents.isNotEmpty) {
+        try {
+          var channel = await NeonBot.instance.client.channels
+              .get(gp.announcementsChannel);
+          if (channel is TextChannel) {
+            var announcement = await channel.sendMessage(MessageBuilder(
+                content:
+                    "${gp.tagForSignupRole.roleMention} New matches were scheduled! Check out the Events tab to sign up."));
+            await announcement.react(ReactionBuilder(name: "✅", id: null));
+          }
+        } catch (e) {
+          // Our announcements channel is invalid if we get an error.
+          // We just won't post if we get one
+        }
+      }
     }
   }
 
@@ -53,27 +72,24 @@ class MatchScheduler {
   Future<List<ScheduledEvent>> scheduleMatches(Guild guild) async {
     List<ScheduledEvent> newEvents = [];
     var gp = await GuildSettings.service.getForGuild(guild.id);
-    var team = await gp.premierTeam;
 
     // Skip guilds that don't have a team set
-    if (team == null) {
-      return newEvents;
-    }
+    if (!gp.hasPremierTeam) return newEvents;
 
     var matchEvents = (await guild.scheduledEvents.list())
         .where((event) => event.creatorId == NeonBot.instance.botUser.id)
-        .toList()
-      ..sort((a, b) => a.scheduledStartTime.compareTo(b.scheduledStartTime));
+        .toList();
 
     // We already have some scheduled events, so wait to schedule more
     if (matchEvents.isNotEmpty) {
       return newEvents;
     }
 
-    var schedule = await TrackerApi.service.getSchedule(team.zone);
+    var schedule = await TrackerApi.service.getSchedule(await gp.zone);
     var matches = schedule.thisWeek;
 
     for (var match in matches) {
+      // Skip any matches that already have an associated discord event
       bool alreadyScheduled = false;
       for (var event in matchEvents) {
         if (event.scheduledStartTime == match.time) {
@@ -82,19 +98,34 @@ class MatchScheduler {
         }
       }
 
-      if (alreadyScheduled) {
-        continue;
-      }
+      if (alreadyScheduled) continue;
 
       var name = (match.matchType == MatchType.playoffs)
           ? "Playoffs"
           : "${match.matchType.name} (${match.map.name})";
 
+      var description =
+          "**Queue window**: ${match.matchType.queueWindow.formatted}\n";
+
+      switch (match.matchType) {
+        case MatchType.playoffs:
+          description += "\n";
+          description +=
+              "Tournament where you play up to 3 matches (best of 1)\n";
+          description +=
+              "Teams alternate banning maps until 3 remain. One team chooses map, and the other chooses starting side";
+        case MatchType.scrim:
+          description += "Does not count towards premier score";
+        case MatchType.match:
+          description += "Gain 100 points for a win, or 25 for losing";
+      }
+
       var event = await guild.scheduledEvents.create(ScheduledEventBuilder(
           name: name,
+          description: description,
           channelId: gp.voiceChannel,
           scheduledStartTime: match.time,
-          scheduledEndTime: match.time.add(const Duration(hours: 1)),
+          scheduledEndTime: match.time.add(match.matchType.expectedDuration),
           privacyLevel: PrivacyLevel.guildOnly,
           type: ScheduledEntityType.voice,
           image: await match.map.image));

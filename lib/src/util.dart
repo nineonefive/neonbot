@@ -4,13 +4,17 @@ import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
 import 'package:timezone/timezone.dart' as tz;
 
-extension ChannelRetriever on Snowflake {
-  Future<String?> get channelMention async {
-    try {
-      return "<#$value>";
-    } catch (e) {
-      return null;
-    }
+extension DataRetriever on Snowflake {
+  String? get channelMention {
+    return this == Snowflake.zero ? null : "<#$value>";
+  }
+
+  String? get roleMention {
+    return this == Snowflake.zero ? null : "<@&$value>";
+  }
+
+  String? get userMention {
+    return this == Snowflake.zero ? null : "<@$value>";
   }
 }
 
@@ -23,11 +27,11 @@ extension FriendlyFormatting on Duration {
     }
 
     if (inDays > 0) {
-      result = "${inDays}d ago";
+      result = "${inDays}d";
     } else if (inHours > 0) {
-      result = "${inHours}h ago";
+      result = "${inHours}h";
     } else if (inMinutes > 0) {
-      result = "${inMinutes}m ago";
+      result = "${inMinutes}m";
     }
 
     return result;
@@ -54,14 +58,6 @@ class UserHasRoleCheck extends Check {
               results.isNotEmpty && results.reduce((x, y) => x | y));
           return await future;
         }, name: "has-role $roleName");
-}
-
-Snowflake? maybeNullSnowflake(int? value) {
-  if (value == null) {
-    return null;
-  }
-
-  return Snowflake(value);
 }
 
 var regionLocations = {
