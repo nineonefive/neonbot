@@ -1,4 +1,5 @@
-import 'dart:io' show Platform;
+import 'dart:convert';
+import 'dart:io' show File;
 
 import 'package:args/args.dart';
 import 'package:logging/logging.dart';
@@ -6,10 +7,7 @@ import 'package:neonbot/src/neonbot.dart';
 
 const String version = '0.0.1';
 
-abstract class Secrets {
-  static final String discordApiToken =
-      Platform.environment['DISCORD_API_TOKEN'] ?? "";
-}
+final Map<String, String> Secrets = {};
 
 ArgParser buildParser() {
   return ArgParser()
@@ -55,11 +53,16 @@ void main(List<String> arguments) async {
       print(msg);
     });
 
+    // Load api keys
+    jsonDecode(File('api_keys.json').readAsStringSync())
+        .forEach((key, value) => Secrets[key] = value);
+
     // Connect the bot to discord
-    await NeonBot.instance.connect(Secrets.discordApiToken);
-  } on FormatException catch (e) {
+    await NeonBot.instance.connect(Secrets['discord'] ?? "");
+  } on FormatException catch (e, stackTrace) {
     // Print usage information if an invalid argument was provided.
     print(e.message);
+    print(stackTrace);
     print('');
     printUsage(argParser);
   }

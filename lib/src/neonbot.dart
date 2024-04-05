@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
 import 'package:sqlite3/sqlite3.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 import 'commands.dart';
 import 'events.dart';
@@ -26,7 +27,10 @@ class NeonBot {
     instance.logger.level = level;
   }
 
-  NeonBot._();
+  NeonBot._() {
+    // Necessary for localization
+    tz.initializeTimeZones();
+  }
 
   final logger = Logger('neonbot');
   late final NyxxGateway client;
@@ -39,13 +43,14 @@ class NeonBot {
     // Connect to our local sqlite database
     DatabaseService.instance.init('local_db.db');
     Finalizer<Database> finalizer = Finalizer<Database>((db) => db.dispose());
-    finalizer.attach(DatabaseService.service!, DatabaseService.service!,
+    finalizer.attach(DatabaseService.instance, DatabaseService.service!,
         detach: DatabaseService.instance);
 
     // Register all slash commands before the bot connects
     final commands = CommandsPlugin(prefix: slashCommand())
       ..addCommand(config)
       ..addCommand(team)
+      ..addCommand(schedule)
       ..onCommandError.listen(errorHandler);
 
     // Finally connect using our api token

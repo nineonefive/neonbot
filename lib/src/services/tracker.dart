@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:chaleno/chaleno.dart';
+import 'package:logging/logging.dart';
 
 import '../models/match_schedule.dart';
 import '../models/premier_team.dart';
@@ -36,6 +37,7 @@ class TrackerApi {
 
   // Maps region id to upcoming matches
   Map<String, MatchSchedule> scheduleCache = {};
+  final Logger logger = Logger("TrackerApi");
 
   TrackerApi._();
 
@@ -80,35 +82,20 @@ class TrackerApi {
     }
 
     var url = Uri.https('tracker.gg', '/valorant/premier/teams/$uuid');
+    var data =
+        (await parseTrackerPage(url))["detailedRoster"] as Map<String, dynamic>;
+    var team = PremierTeam(
+      data["id"],
+      data["name"],
+      zone: data["zone"],
+      zoneName: data["zoneName"],
+      rank: data["rank"],
+      leagueScore: data["leagueScore"],
+      division: data["divisionName"],
+    );
 
-    var parser = await Chaleno().load(url.toString());
-    var scriptTags = parser?.getElementsByTagName('script') ?? [];
-    for (var scriptTag in scriptTags) {
-      // Ignore external scripts like cloudflare
-      if (scriptTag.src == null) {
-        var text = scriptTag.innerHTML ?? "";
-        if (text.contains("window.__INITIAL_STATE__ = ")) {
-          text = text.replaceAll("window.__INITIAL_STATE__ = ", "");
-          var data = json.decode(text)["valorantPremier"]["detailedRoster"]
-              as Map<String, dynamic>;
-
-          var team = PremierTeam(
-            data["id"],
-            data["name"],
-            zone: data["zone"],
-            zoneName: data["zoneName"],
-            rank: data["rank"],
-            leagueScore: data["leagueScore"],
-            division: data["divisionName"],
-          );
-
-          teamCache[team.id] = team;
-          return team;
-        }
-      }
-    }
-
-    throw TrackerApiException(404);
+    teamCache[team.id] = team;
+    return team;
   }
 
   /// Gets the upcoming matches for the given region [region]
@@ -121,7 +108,46 @@ class TrackerApi {
       }
     }
 
-    // Todo: Retrieve schedule
-    return MatchSchedule([]);
+    var url = Uri.https(
+        'tracker.gg', '/valorant/premier/standings', {'region': region});
+    logger.fine("Fetching schedule for $region at $url");
+    var data =
+        (await parseTrackerPage(url))["schedules"] as Map<String, dynamic>;
+    var matchDicts =
+        (data.values.first as Map<String, dynamic>)["events"] as List<dynamic>;
+    var matches = matchDicts.whereType<Map<String, dynamic>>().map((m) {
+      var matchType = switch (m["typeName"]) {
+        "Scrim" => MatchType.scrim,
+        "Match" => MatchType.match,
+        "Tournament" => MatchType.playoffs,
+        _ => throw TrackerApiException(500)
+      };
+
+      var time = DateTime.parse(m["startTime"]);
+      var map = (matchType == MatchType.playoffs) ? null : m["name"];
+      return Match(matchType, time, map);
+    }).toList();
+
+    var schedule = MatchSchedule(matches);
+    scheduleCache[region] = schedule;
+    return schedule;
+  }
+
+  Future<Map<String, dynamic>> parseTrackerPage(Uri url) async {
+    var parser = await Chaleno().load(url.toString());
+    var scriptTags = parser?.getElementsByTagName('script') ?? [];
+    for (var scriptTag in scriptTags) {
+      // Ignore external scripts like cloudflare
+      if (scriptTag.src == null) {
+        var text = scriptTag.innerHTML ?? "";
+        if (text.contains("window.__INITIAL_STATE__ = ")) {
+          text = text.replaceAll("window.__INITIAL_STATE__ = ", "");
+          var data = json.decode(text)["valorantPremier"];
+          return data;
+        }
+      }
+    }
+
+    throw TrackerApiException(404);
   }
 }

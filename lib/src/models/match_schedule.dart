@@ -1,9 +1,9 @@
 import 'premier_team.dart';
 
 enum MatchType {
-  scrim("scrim"),
-  match("match"),
-  playoffs("playoffs");
+  scrim("Scrim"),
+  match("Match"),
+  playoffs("Playoffs");
 
   const MatchType(this.name);
 
@@ -38,6 +38,15 @@ class Match {
 
   Match(this.matchType, this.time, this.map,
       {this.teamAId, this.teamBId, this.teamAScore = 0, this.teamBScore = 0});
+
+  @override
+  String toString() {
+    if (matchType == MatchType.playoffs) {
+      return "Playoffs @ $time";
+    } else {
+      return "$map ${matchType.name} @ $time";
+    }
+  }
 }
 
 class MatchSchedule {
@@ -45,6 +54,17 @@ class MatchSchedule {
   late final DateTime lastUpdated;
 
   MatchSchedule(this.matches) {
+    matches.sort((a, b) => a.time.compareTo(b.time));
     lastUpdated = DateTime.now();
+  }
+
+  Iterable<Match> get upcomingMatches =>
+      matches.where((m) => m.time.isAfter(DateTime.now()));
+
+  Iterable<Match> get thisWeek {
+    var nextMonday = DateTime.now()
+        .subtract(Duration(days: DateTime.now().weekday - 1))
+        .add(Duration(days: 7));
+    return upcomingMatches.where((m) => m.time.isBefore(nextMonday));
   }
 }

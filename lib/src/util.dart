@@ -1,5 +1,7 @@
+import 'package:intl/intl.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 extension ChannelRetriever on Snowflake {
   Future<String?> get channelMention async {
@@ -55,4 +57,39 @@ Snowflake? maybeNullSnowflake(int? value) {
   }
 
   return Snowflake(value);
+}
+
+var regionLocations = {
+  // Americas
+  "NA_US_EAST": "America/New_York",
+  "NA_US_WEST": "America/Los_Angeles",
+  "LATAM_NORTH": "America/New_York",
+  "LATAM_SOUTH": "America/Santiago",
+  "BR_BRAZIL": "America/Sao_Paulo",
+
+  // Asia
+  "AP_ASIA": "Asia/Taipei",
+  "AP_JAPAN": "Asia/Tokyo",
+  "AP_OCEANIA": "Australia/Sydney",
+  "AP_SOUTH_ASIA": "Asia/Kolkata",
+  "KR_KOREA": "Asia/Seoul",
+
+  // EMEA
+  "EU_NORTH": "Europe/London",
+  "EU_EAST": "Europe/Warsaw",
+  "EU_DACH": "Europe/Berlin",
+  "EU_IBIT": "Europe/Madrid",
+  "EU_FRANCE": "Europe/Paris",
+  "EU_MIDDLE_EAST": "Asia/Qatar",
+  "EU_TURKEY": "Europe/Istanbul"
+}.map((k, v) => MapEntry(k, tz.getLocation(v)));
+
+extension DiscordTimestamp on DateTime {
+  String toDiscord(String region) {
+    var epochSeconds = millisecondsSinceEpoch ~/ 1000;
+    var localized = tz.TZDateTime.from(this, regionLocations[region]!);
+    var weekday = DateFormat("EEEE").format(localized);
+    // return "$weekday <t:$epochSeconds:f>";
+    return "$weekday <t:$epochSeconds:t>";
+  }
 }

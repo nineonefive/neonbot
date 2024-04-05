@@ -2,4 +2,5 @@
 # Created by `dart pub`
 .dart_tool/
 .discord
+api_keys.json
 *.db

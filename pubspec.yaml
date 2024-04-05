@@ -11,10 +11,12 @@ dependencies:
   args: ^2.4.2
   chaleno: ^0.0.8
   event_bus: ^2.0.0
+  intl: ^0.19.0
   logging: ^1.2.0
   nyxx: ^6.2.0
   nyxx_commands: ^6.0.2
   sqlite3: ^2.4.1+1
+  timezone: ^0.9.2
 
 dev_dependencies:
   lints: ^3.0.0
