@@ -1,3 +1,4 @@
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
@@ -36,6 +37,10 @@ extension FriendlyFormatting on Duration {
 class UserHasRoleCheck extends Check {
   UserHasRoleCheck(String roleName)
       : super((context) async {
+          if (context.guild?.ownerMember.id == context.user.id) {
+            return true;
+          }
+
           // Get the roles of the user and check if any match "neonbot admin"
           var partialRoles = context.member?.roles ?? [];
           var futures = partialRoles.map((pr) async {
@@ -89,7 +94,11 @@ extension DiscordTimestamp on DateTime {
     var epochSeconds = millisecondsSinceEpoch ~/ 1000;
     var localized = tz.TZDateTime.from(this, regionLocations[region]!);
     var weekday = DateFormat("EEEE").format(localized);
-    // return "$weekday <t:$epochSeconds:f>";
     return "$weekday <t:$epochSeconds:t>";
   }
+}
+
+Future<List<int>> downloadImage(Uri url) async {
+  var response = await http.get(url);
+  return response.bodyBytes.toList();
 }

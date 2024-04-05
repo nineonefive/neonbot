@@ -3,10 +3,10 @@ import 'dart:convert';
 
 import 'package:nyxx/nyxx.dart';
 
-import 'models/premier_team.dart';
-import 'services/db.dart';
-import 'services/tracker.dart';
-import 'util.dart' show maybeNullSnowflake;
+import 'premier_team.dart';
+import '../services/db.dart';
+import '../services/tracker.dart';
+import '../util.dart' show maybeNullSnowflake;
 
 final table = Tables.GuildPreferences;
 final logger = Logger("GuildPreferences");

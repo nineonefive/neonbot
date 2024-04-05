@@ -1,3 +1,5 @@
+import 'package:neonbot/src/style.dart';
+
 import 'premier_team.dart';
 
 enum MatchType {
@@ -13,9 +15,7 @@ enum MatchType {
 class Match {
   final MatchType matchType;
   final DateTime time;
-
-  // Playoffs won't have a map
-  final String? map;
+  final ValorantMap map;
 
   final String? teamAId;
   final String? teamBId;
@@ -44,7 +44,7 @@ class Match {
     if (matchType == MatchType.playoffs) {
       return "Playoffs @ $time";
     } else {
-      return "$map ${matchType.name} @ $time";
+      return "${map.name} ${matchType.name} @ $time";
     }
   }
 }

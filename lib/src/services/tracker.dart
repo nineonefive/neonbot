@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 
 import '../models/match_schedule.dart';
 import '../models/premier_team.dart';
+import '../style.dart';
 
 /// Exception for validly formatted riot ids that don't have an
 /// associated team.
@@ -84,6 +85,11 @@ class TrackerApi {
     var url = Uri.https('tracker.gg', '/valorant/premier/teams/$uuid');
     var data =
         (await parseTrackerPage(url))["detailedRoster"] as Map<String, dynamic>;
+
+    if (data["id"] == null) {
+      throw TrackerApiException(403);
+    }
+
     var team = PremierTeam(
       data["id"],
       data["name"],
@@ -124,7 +130,8 @@ class TrackerApi {
       };
 
       var time = DateTime.parse(m["startTime"]);
-      var map = (matchType == MatchType.playoffs) ? null : m["name"];
+      var map = ValorantMap.getByName(
+          (matchType == MatchType.playoffs) ? null : m["name"]);
       return Match(matchType, time, map);
     }).toList();
 

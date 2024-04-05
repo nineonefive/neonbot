@@ -10,6 +10,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'commands.dart';
 import 'events.dart';
 import 'services/db.dart';
+import 'services/scheduler.dart';
 
 // Determined with the discord website
 final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
@@ -51,17 +52,19 @@ class NeonBot {
       ..addCommand(config)
       ..addCommand(team)
       ..addCommand(schedule)
+      ..addCommand(events)
       ..onCommandError.listen(errorHandler);
 
     // Finally connect using our api token
-    var client = await Nyxx.connectGateway(
-        token, GatewayIntents.allUnprivileged,
+    client = await Nyxx.connectGateway(token, GatewayIntents.allUnprivileged,
         options: GatewayClientOptions(plugins: [commands]));
-    var botUser = await client.users.fetchCurrentUser();
+    botUser = await client.users.fetchCurrentUser();
     logger.info("Logged in as ${botUser.username}");
 
     // Connect events to the event bus
     client.onGuildCreate.listen(eventBus.fire);
     client.onInteractionCreate.listen(eventBus.fire);
+
+    MatchScheduler.init(client);
   }
 }

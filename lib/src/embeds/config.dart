@@ -1,6 +1,6 @@
 import 'package:nyxx/nyxx.dart';
 
-import '../guild_preferences.dart';
+import '../models/guild_preferences.dart';
 import '../util.dart';
 import '../style.dart';
 

@@ -4,7 +4,7 @@ import 'package:sqlite3/common.dart';
 import '../embeds.dart';
 import '../events.dart';
 import '../events/interaction_create.dart';
-import '../guild_preferences.dart';
+import '../models/guild_preferences.dart';
 import 'db.dart';
 
 class GuildSettings {
