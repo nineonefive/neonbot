@@ -5,6 +5,7 @@ import 'dart:isolate';
 
 import 'package:chaleno/chaleno.dart' show Parser, Chaleno;
 import 'package:logging/logging.dart';
+import 'package:neonbot/src/neonbot.dart';
 
 import '../models/match_schedule.dart';
 import '../models/premier_team.dart';
@@ -228,9 +229,13 @@ class TrackerWorker {
   }
 
   static Future<Map<String, dynamic>> parseTrackerPage(Uri url) async {
-    // var parser = await Chaleno().load(url.toString());
-    var result = await Process.run("python", ["tracker.py", url.toString()]);
-    var parser = Parser(result.stdout);
+    Parser parser;
+    if (NeonBot.useSelenium) {
+      var result = await Process.run("python", ["tracker.py", url.toString()]);
+      parser = Parser(result.stdout);
+    } else {
+      parser = (await Chaleno().load(url.toString()))!;
+    }
 
     var scriptTags = parser.getElementsByTagName('script') ?? [];
     for (var scriptTag in scriptTags) {

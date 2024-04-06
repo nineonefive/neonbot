@@ -18,11 +18,13 @@ import 'services/tracker.dart';
 final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
     GatewayIntents.guilds |
     GatewayIntents.guildMessages |
-    GatewayIntents.guildScheduledEvents;
+    GatewayIntents.guildScheduledEvents |
+    GatewayIntents.messageContent;
 
 class NeonBot {
   static final NeonBot instance = NeonBot._();
 
+  static bool useSelenium = false;
   static Level _logLevel = Level.INFO;
   static Level get logLevel => _logLevel;
   static set logLevel(Level level) {

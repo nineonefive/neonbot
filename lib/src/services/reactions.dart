@@ -1,7 +1,6 @@
 import 'package:nyxx/nyxx.dart';
 
 import '../events.dart';
-import 'preferences.dart';
 
 final manEmoji =
     ReactionBuilder(name: "MAN", id: Snowflake(1213704607658807336));
@@ -29,7 +28,8 @@ class AutoreactService {
         .map((word) => word.trim().toLowerCase());
     var shouldReact = words.any((word) => word == "man");
 
-    logger.fine("React: $shouldReact, words: $words");
+    logger.fine(
+        "content: ${event.message.content}, react: $shouldReact, words: $words");
 
     if (shouldReact) {
       logger.fine("Received message with man in it");

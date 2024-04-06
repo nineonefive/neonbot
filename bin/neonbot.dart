@@ -16,7 +16,9 @@ ArgParser buildParser() {
       negatable: false,
       help: 'Print the tool version.',
     )
-    ..addFlag('debug', negatable: false, help: 'Enable debug mode.');
+    ..addFlag('debug', negatable: false, help: 'Enable debug mode.')
+    ..addFlag('cloudflare',
+        negatable: false, help: 'Enable selenium to get tracker data');
 }
 
 void printUsage(ArgParser argParser) {
@@ -33,6 +35,7 @@ void main(List<String> arguments) async {
       return;
     }
 
+    // Configure logging
     Level logLevel = Level.INFO;
     if (results.wasParsed('debug')) {
       print("Using debug mode");
@@ -52,6 +55,11 @@ void main(List<String> arguments) async {
       }
       print(msg);
     });
+
+    if (results.wasParsed("cloudflare")) {
+      print("Using cloudflare mode");
+      NeonBot.useSelenium = true;
+    }
 
     // Load api keys
     jsonDecode(File('api_keys.json').readAsStringSync())
