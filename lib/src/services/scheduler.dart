@@ -39,15 +39,15 @@ class MatchScheduler {
 
   MatchScheduler._(this.client) {
     // Schedule an update every 5 minutes and also right now
-    Future.delayed(Duration(seconds: 3), tryTick);
-    timer = Timer(tickRate, tryTick);
+    Future.delayed(Duration(seconds: 3), () => tryTick(null));
+    timer = Timer.periodic(tickRate, tryTick);
   }
 
   static void init(NyxxGateway client) {
     _instance = MatchScheduler._(client);
   }
 
-  void tryTick() async {
+  void tryTick(Timer? timer) async {
     try {
       tick();
     } catch (e) {
@@ -71,6 +71,14 @@ class MatchScheduler {
       var lastUpdated =
           _lastUpdated[guild.id] ?? DateTime.fromMicrosecondsSinceEpoch(0);
       var age = DateTime.now().difference(lastUpdated);
+
+      var upcomingEvents = (await guild.scheduledEvents.list())
+          .where((event) => event.creatorId == NeonBot.instance.botUser.id)
+          .toList();
+
+      // Cleanup old events, and possibly start the current match
+      upcomingEvents = await cleanupOldEvents(upcomingEvents);
+      await maybeStartCurrentMatch(upcomingEvents);
 
       // Skip guilds that have been recently updated, as the premier schedule doesn't change
       // that often
@@ -110,10 +118,6 @@ class MatchScheduler {
     var upcomingEvents = (await guild.scheduledEvents.list())
         .where((event) => event.creatorId == NeonBot.instance.botUser.id)
         .toList();
-
-    // Cleanup old events, and possibly start the current match
-    upcomingEvents = await cleanupOldEvents(upcomingEvents);
-    await maybeStartCurrentMatch(upcomingEvents);
 
     // At this point, matchEvents only contains upcoming events that neonbot scheduled.
     // If there's still upcoming matches for the week, don't bother scheduling more
@@ -211,6 +215,7 @@ class MatchScheduler {
     var now = DateTime.now();
 
     for (var event in events) {
+      logger.fine("Updating event ${event.id}: ${event.status.name}");
       // Skip events we didn't make or that are already started
       if (event.status != EventStatus.scheduled ||
           event.creatorId != NeonBot.instance.botUser.id) continue;
@@ -220,16 +225,21 @@ class MatchScheduler {
           .listUsers()
           .then((users) => users.map((user) => user.member));
 
+      logger.fine("Has ${interestedMembers.length} interested members");
+
       int signups = interestedMembers
           .where((member) =>
               member != null && member.roleIds.contains(gp.tagForSignupRole))
           .length;
+
+      logger.fine("Has $signups signups");
 
       // Can't start a premier match without 5 players
       if (signups < 5) continue;
 
       // Check if we're in the warmup period, and if so, start the event
       if (event.scheduledStartTime.subtract(warmupPeriod).isBefore(now)) {
+        logger.fine("In warmup period. Starting event")
         await event
             .update(ScheduledEventUpdateBuilder(status: EventStatus.active));
       }
