@@ -2,6 +2,7 @@ library neonbot;
 
 import 'dart:async';
 
+import 'package:neonbot/src/services/reactions.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -63,10 +64,12 @@ class NeonBot {
     logger.info("Logged in as ${botUser.username}");
 
     // Connect events to the event bus
+    client.onMessageCreate.listen(eventBus.fire);
     client.onGuildCreate.listen(eventBus.fire);
     client.onInteractionCreate.listen(eventBus.fire);
 
     MatchScheduler.init(client);
     TrackerApi.init();
+    AutoreactService.init();
   }
 }
