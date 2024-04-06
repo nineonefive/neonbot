@@ -9,6 +9,8 @@ final manEmoji =
 class AutoreactService {
   static late final AutoreactService instance;
 
+  final Logger logger = Logger("AutoreactService");
+
   static void init() {
     instance = AutoreactService._();
   }
@@ -27,11 +29,11 @@ class AutoreactService {
     var shouldReact = words.any((word) => word == "man");
 
     if (shouldReact) {
-      var gp = await GuildSettings.service.getForGuild(guildId);
-      var isMilkTruckDiscord =
-          gp.hasPremierTeam && gp.partialTeam.name == "Milk Truck#MILK";
+      logger.fine("Received message with man in it");
+      var isMilkTruckDiscord = guildId == Snowflake(110193006381919042);
 
       if (isMilkTruckDiscord) {
+        logger.fine("Posting man reaction");
         await event.message.react(manEmoji);
       }
     }
