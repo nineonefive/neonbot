@@ -5,6 +5,7 @@ import 'preferences.dart';
 
 final manEmoji =
     ReactionBuilder(name: "MAN", id: Snowflake(1213704607658807336));
+final milkTruckDiscord = Snowflake(110193006381919042);
 
 class AutoreactService {
   static late final AutoreactService instance;
@@ -28,9 +29,11 @@ class AutoreactService {
         .map((word) => word.trim().toLowerCase());
     var shouldReact = words.any((word) => word == "man");
 
+    logger.fine("React: $shouldReact, words: $words");
+
     if (shouldReact) {
       logger.fine("Received message with man in it");
-      var isMilkTruckDiscord = guildId == Snowflake(110193006381919042);
+      var isMilkTruckDiscord = guildId == milkTruckDiscord;
 
       if (isMilkTruckDiscord) {
         logger.fine("Posting man reaction");
