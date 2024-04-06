@@ -239,7 +239,7 @@ class MatchScheduler {
 
       // Check if we're in the warmup period, and if so, start the event
       if (event.scheduledStartTime.subtract(warmupPeriod).isBefore(now)) {
-        logger.fine("In warmup period. Starting event")
+        logger.fine("In warmup period. Starting event");
         await event
             .update(ScheduledEventUpdateBuilder(status: EventStatus.active));
       }
