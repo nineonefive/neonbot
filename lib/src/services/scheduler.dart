@@ -105,7 +105,7 @@ class MatchScheduler {
     var gp = await GuildSettings.service.getForGuild(guild.id);
 
     // Skip guilds that don't have a team set
-    if (!gp.hasPremierTeam) return newEvents;
+    if (!gp.hasPremierTeam || !gp.hasVoiceChannel) return newEvents;
 
     var upcomingEvents = (await guild.scheduledEvents.list())
         .where((event) => event.creatorId == NeonBot.instance.botUser.id)
