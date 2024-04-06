@@ -85,6 +85,7 @@ var regionLocations = {
   "EU_TURKEY": "Europe/Istanbul"
 }.map((k, v) => MapEntry(k, tz.getLocation(v)));
 
+/// Turns a DateTime into a discord timestamp localied to region [region]
 extension DiscordTimestamp on DateTime {
   String toDiscord(String region) {
     var epochSeconds = millisecondsSinceEpoch ~/ 1000;
@@ -94,6 +95,7 @@ extension DiscordTimestamp on DateTime {
   }
 }
 
+/// Downlaods an image at [url]
 Future<List<int>> downloadImage(Uri url) async {
   var response = await http.get(url);
   return response.bodyBytes.toList();

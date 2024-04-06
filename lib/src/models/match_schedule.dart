@@ -41,12 +41,26 @@ class Match {
   Match(this.matchType, this.time, this.map,
       {this.teamAId, this.teamBId, this.teamAScore = 0, this.teamBScore = 0});
 
+  static Match tryParse(Map<String, dynamic> match) {
+    var matchType = switch (match["typeName"]) {
+      "Scrim" => MatchType.scrim,
+      "Match" => MatchType.match,
+      "Tournament" => MatchType.playoffs,
+      _ => MatchType.unknown
+    };
+
+    var time = DateTime.parse(match["startTime"]);
+    var map = ValorantMap.getByName(
+        (matchType == MatchType.playoffs) ? null : match["name"]);
+    return Match(matchType, time, map);
+  }
+
   @override
   String toString() {
     if (matchType == MatchType.playoffs) {
-      return "Playoffs @ $time";
+      return "Match(Playoffs @ $time)";
     } else {
-      return "${map.name} ${matchType.name} @ $time";
+      return "Match(${map.name} ${matchType.name} @ $time)";
     }
   }
 }

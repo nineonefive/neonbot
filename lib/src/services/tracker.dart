@@ -33,8 +33,8 @@ class TrackerApiException implements Exception {
 }
 
 class TrackerApi {
-  static const teamCacheTime = Duration(minutes: 5);
-  static const scheduleCacheTime = Duration(hours: 1);
+  static const teamCacheTime = Duration(minutes: 10);
+  static const scheduleCacheTime = Duration(hours: 12);
   static final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$');
 
   static late final TrackerApi service;
@@ -135,7 +135,8 @@ class TrackerApi {
       }
     }
 
-    // Download the data with the worker since it's intensive
+    // Download the data with the worker since it's intensive. This avoids hanging
+    // other computations in the main event queue
     var url = Uri.https(
             'tracker.gg', '/valorant/premier/standings', {'region': region})
         .toString();
@@ -147,33 +148,18 @@ class TrackerApi {
       throw TrackerApiException(500);
     }
 
+    // Parse the matches into our appropriate structure. The events are stored under
+    // the "events" key, so get that first.
     var data = response["schedules"] as Map<String, dynamic>;
-
-    // Process the matches
     var matchDicts =
         (data.values.first as Map<String, dynamic>)["events"] as List<dynamic>;
     var matches = matchDicts
         .whereType<Map<String, dynamic>>()
-        .map((m) {
-          var matchType = switch (m["typeName"]) {
-            "Scrim" => MatchType.scrim,
-            "Match" => MatchType.match,
-            "Tournament" => MatchType.playoffs,
-            _ => MatchType.unknown
-          };
-
-          if (matchType == MatchType.unknown) {
-            logger.warning("Unknown match type: ${m["typeName"]}");
-          }
-
-          var time = DateTime.parse(m["startTime"]);
-          var map = ValorantMap.getByName(
-              (matchType == MatchType.playoffs) ? null : m["name"]);
-          return Match(matchType, time, map);
-        })
+        .map(Match.tryParse)
         .where((m) => m.matchType != MatchType.unknown)
         .toList();
 
+    // Save the match schedule for future calls from other guilds
     var schedule = MatchSchedule(matches);
     scheduleCache[region] = schedule;
     return schedule;
