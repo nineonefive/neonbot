@@ -19,7 +19,8 @@ final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
     GatewayIntents.guilds |
     GatewayIntents.guildMessages |
     GatewayIntents.guildScheduledEvents |
-    GatewayIntents.messageContent;
+    GatewayIntents.messageContent |
+    GatewayIntents.guildMembers;
 
 class NeonBot {
   static final NeonBot instance = NeonBot._();
