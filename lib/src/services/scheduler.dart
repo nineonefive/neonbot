@@ -227,9 +227,20 @@ class MatchScheduler {
 
       logger.fine("Has ${interestedMembers.length} interested members");
 
+      for (var member in interestedMembers) {
+        if (member == null) {
+          logger.fine("Member is null");
+        } else {
+          if (!member.roles.any((role) => role.id == gp.tagForSignupRole)) {
+            logger.fine("Member doesn't have signup role");
+          }
+        }
+      }
+
       int signups = interestedMembers
           .where((member) =>
-              member != null && member.roleIds.contains(gp.tagForSignupRole))
+              member != null &&
+              member.roles.any((role) => role.id == gp.tagForSignupRole))
           .length;
 
       logger.fine("Has $signups signups");
