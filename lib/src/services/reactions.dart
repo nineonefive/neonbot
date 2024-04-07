@@ -10,14 +10,23 @@ final keywordReactions = [
   KeywordAutoreact("costco",
       ReactionBuilder(name: "costco", id: Snowflake(1167897307811954828)),
       milkTruckOnly: true),
-  KeywordAutoreact("mh", ReactionBuilder(name: "🌽", id: null)),
-  KeywordAutoreact("italian", ReactionBuilder(name: "🐧", id: null)),
-  KeywordAutoreact("neonbot", ReactionBuilder(name: "💙", id: null)),
-  KeywordAutoreact("lauten", ReactionBuilder(name: "🦑", id: null)),
-  KeywordAutoreact("swit",
-      ReactionBuilder(name: "sagelove", id: Snowflake(1226382840422207548))),
   KeywordAutoreact("alecks",
       ReactionBuilder(name: "alecks", id: Snowflake(1143687438045302864))),
+
+  // Friends
+  KeywordAutoreact("swit",
+      ReactionBuilder(name: "sagelove", id: Snowflake(1226382840422207548))),
+  KeywordAutoreact("lauten", ReactionBuilder(name: "🦑", id: null)),
+  KeywordAutoreact("mh", ReactionBuilder(name: "🌽", id: null)),
+  KeywordAutoreact("italian", ReactionBuilder(name: "🐧", id: null)),
+  KeywordAutoreact("ben", ReactionBuilder(name: "🤓", id: null)),
+  KeywordAutoreact("paige", ReactionBuilder(name: "🥛", id: null)),
+  KeywordAutoreact("bloom", ReactionBuilder(name: "🪷", id: null)),
+  KeywordAutoreact("glaze",
+      ReactionBuilder(name: "glaze", id: Snowflake(1226388046203584552))),
+  KeywordAutoreact(
+      "kev", ReactionBuilder(name: "kev", id: Snowflake(1226386493774237738))),
+  KeywordAutoreact("neonbot", ReactionBuilder(name: "💙", id: null)),
 ];
 
 class AutoreactService {
