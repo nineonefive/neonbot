@@ -2,9 +2,20 @@ import 'package:nyxx/nyxx.dart';
 
 import '../events.dart';
 
-final manEmoji =
-    ReactionBuilder(name: "MAN", id: Snowflake(1213704607658807336));
-final milkTruckDiscord = Snowflake(110193006381919042);
+final milkTruckDiscord = Snowflake(1101930063819190425);
+final keywordReactions = [
+  KeywordAutoreact(
+      "man", ReactionBuilder(name: "MAN", id: Snowflake(1213704607658807336)),
+      milkTruckOnly: true),
+  KeywordAutoreact("costco",
+      ReactionBuilder(name: "costco", id: Snowflake(1167897307811954828)),
+      milkTruckOnly: true),
+  KeywordAutoreact("corn", ReactionBuilder(name: "🌽", id: Snowflake.zero)),
+  KeywordAutoreact("neonbot", ReactionBuilder(name: "💙", id: Snowflake.zero)),
+  KeywordAutoreact("lauten", ReactionBuilder(name: "🦑", id: Snowflake.zero)),
+  KeywordAutoreact("alecks",
+      ReactionBuilder(name: "alecks", id: Snowflake(1143687438045302864))),
+];
 
 class AutoreactService {
   static late final AutoreactService instance;
@@ -26,19 +37,23 @@ class AutoreactService {
     var words = event.message.content
         .split(" ")
         .map((word) => word.trim().toLowerCase());
-    var shouldReact = words.any((word) => word == "man");
 
-    logger.fine(
-        "content: ${event.message.content}, react: $shouldReact, words: $words");
+    for (var reaction in keywordReactions) {
+      if (words.contains(reaction.keyword)) {
+        if (reaction.milkTruckOnly && event.guildId != milkTruckDiscord) {
+          continue;
+        }
 
-    if (shouldReact) {
-      logger.fine("Received message with man in it");
-      var isMilkTruckDiscord = guildId == milkTruckDiscord;
-
-      if (isMilkTruckDiscord) {
-        logger.fine("Posting man reaction");
-        await event.message.react(manEmoji);
+        await event.message.react(reaction.emoji);
       }
     }
   }
+}
+
+class KeywordAutoreact {
+  final String keyword;
+  final ReactionBuilder emoji;
+  bool milkTruckOnly;
+
+  KeywordAutoreact(this.keyword, this.emoji, {this.milkTruckOnly = false});
 }

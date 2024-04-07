@@ -14,13 +14,15 @@ import 'services/db.dart';
 import 'services/scheduler.dart';
 import 'services/tracker.dart';
 
-// Determined with the discord website
+// Breakdown of intents:
+// - guildMessageReactions: Needed for auto react or possibly signup mechanisms
+// - guildMessages: Needed for autoreact
+// - guildScheduledEvents: Needed for scheduling matches to the discord events list
+// - messageContent: needed for autoreactions
 final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
-    GatewayIntents.guilds |
     GatewayIntents.guildMessages |
     GatewayIntents.guildScheduledEvents |
-    GatewayIntents.messageContent |
-    GatewayIntents.guildMembers;
+    GatewayIntents.messageContent;
 
 class NeonBot {
   static final NeonBot instance = NeonBot._();
@@ -61,7 +63,7 @@ class NeonBot {
       ..onCommandError.listen(errorHandler);
 
     // Finally connect using our api token
-    client = await Nyxx.connectGateway(token, GatewayIntents.allUnprivileged,
+    client = await Nyxx.connectGateway(token, intents,
         options: GatewayClientOptions(plugins: [commands]));
     botUser = await client.users.fetchCurrentUser();
     logger.info("Logged in as ${botUser.username}");
