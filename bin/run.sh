@@ -1,6 +1,6 @@
 # Update from github main branch
 echo "Updating from github main branch"
-git pull
+git fetch && git reset --hard origin/main
 
 # Generate deployment targets
 echo "Building neonbot"
