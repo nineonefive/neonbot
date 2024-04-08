@@ -84,7 +84,7 @@ class MatchScheduler {
       // that often
       if (!gp.hasPremierTeam || age < const Duration(hours: 1)) continue;
 
-      var newEvents = await scheduleMatches(guild);
+      var newEvents = await scheduleNewMatches(guild);
       _lastUpdated[guild.id] = DateTime.now();
 
       if (gp.hasTagForSignupRole &&
@@ -108,7 +108,7 @@ class MatchScheduler {
   }
 
   /// Schedule upcoming matches for [guild] as server events
-  Future<List<ScheduledEvent>> scheduleMatches(Guild guild) async {
+  Future<List<ScheduledEvent>> scheduleNewMatches(Guild guild) async {
     List<ScheduledEvent> newEvents = [];
     var gp = await GuildSettings.service.getForGuild(guild.id);
 

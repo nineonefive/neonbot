@@ -1,0 +1,14 @@
+[Unit]
+Description=Neonbot discord bot
+
+[Service]
+ExecStart=sh /home/nineonefive/neonbot/bin/run.sh
+WorkingDirectory=/home/nineonefive/neonbot
+Type=exec
+Restart=always
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
