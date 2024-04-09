@@ -14,4 +14,5 @@ cp api_keys.json deploy/api_keys.json
 # Run neonbot in the deploy folder
 echo "Running in deploy folder"
 cd deploy
+source ~/selenium/bin/activate
 ./neonbot.exe --cloudflare
