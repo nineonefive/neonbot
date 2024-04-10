@@ -12,7 +12,7 @@ import 'commands.dart';
 import 'events.dart';
 import 'services/db.dart';
 import 'services/scheduler.dart';
-import 'services/tracker.dart';
+import 'services/tracker/tracker.dart';
 
 // Breakdown of intents:
 // - guildMessageReactions: Needed for auto react or possibly signup mechanisms
@@ -25,14 +25,16 @@ final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
     GatewayIntents.messageContent;
 
 class NeonBot {
-  static final NeonBot instance = NeonBot._();
+  static final NeonBot _instance = NeonBot._();
+
+  factory NeonBot() => _instance;
 
   static bool useSelenium = false;
   static Level _logLevel = Level.INFO;
   static Level get logLevel => _logLevel;
   static set logLevel(Level level) {
     _logLevel = level;
-    instance.logger.level = level;
+    _instance.logger.level = level;
   }
 
   NeonBot._() {
@@ -43,6 +45,7 @@ class NeonBot {
   final logger = Logger('neonbot');
   late final NyxxGateway client;
   late final User botUser;
+  Snowflake get userId => botUser.id;
 
   /// Connects to discord using the provided token [token]
   ///

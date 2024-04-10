@@ -1,5 +1,4 @@
-import '../style.dart';
-import 'premier_team.dart';
+import 'valorant_maps.dart';
 
 enum MatchType {
   scrim("Scrim", Duration(hours: 1), Duration(hours: 1)),
@@ -19,27 +18,7 @@ class Match {
   final DateTime time;
   final ValorantMap map;
 
-  final String? teamAId;
-  final String? teamBId;
-  final int teamAScore;
-  final int teamBScore;
-
-  String? get winnerId {
-    if (teamAScore > teamBScore) {
-      return teamAId;
-    } else if (teamBScore > teamAScore) {
-      return teamBId;
-    } else {
-      return null;
-    }
-  }
-
-  bool didTeamWin(PremierTeam team) {
-    return team.id == winnerId;
-  }
-
-  Match(this.matchType, this.time, this.map,
-      {this.teamAId, this.teamBId, this.teamAScore = 0, this.teamBScore = 0});
+  Match(this.matchType, this.time, this.map);
 
   static Match tryParse(Map<String, dynamic> match) {
     var matchType = switch (match["typeName"]) {

@@ -10,7 +10,7 @@ extension PremierTeamEmbeddable on PremierTeam {
       "**Rank**: \\#$rank",
       "**Season points**: $leagueScore",
       "**Division**: $division",
-      "**Zone**: $zoneName"
+      "**Zone**: ${region.name}"
     ].join("\n");
 
     var timeString = DateTime.now().difference(lastUpdated).formatted;

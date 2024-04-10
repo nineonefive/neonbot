@@ -1,11 +1,10 @@
 import '../util.dart';
+import 'valorant_regions.dart';
 
 class PremierTeam {
   final String id;
   final String riotId;
-  final String zone;
-  final String zoneName;
-
+  final Region region;
   final String imageUrl;
 
   int rank = 0;
@@ -27,8 +26,7 @@ class PremierTeam {
   late DateTime lastUpdated;
 
   PremierTeam(this.id, this.riotId,
-      {this.zone = 'NA_US_EAST',
-      this.zoneName = 'US East',
+      {this.region = Region.usEast,
       this.rank = 0,
       this.leagueScore = 0,
       this.division = '',
@@ -57,6 +55,18 @@ class PartialPremierTeam {
   final String name;
 
   const PartialPremierTeam(this.id, this.name);
+
+  Map<String, String> toJson() {
+    return {'id': id, 'name': name};
+  }
+
+  static PartialPremierTeam fromJson(Map<String, dynamic>? data) {
+    if (data == null || data['id'] == null || data['name'] == null) {
+      return none;
+    }
+
+    return PartialPremierTeam(data['id'], data['name']);
+  }
 
   @override
   String toString() {

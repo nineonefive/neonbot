@@ -5,54 +5,40 @@ import 'dart:isolate';
 
 import 'package:chaleno/chaleno.dart' show Parser, Chaleno;
 import 'package:logging/logging.dart';
-import 'package:neonbot/src/neonbot.dart';
 
-import '../models/match_schedule.dart';
-import '../models/premier_team.dart';
-import '../style.dart';
-
-/// Exception for validly formatted riot ids that don't have an
-/// associated team.
-class PremierTeamDoesntExistException implements Exception {
-  final String team;
-
-  const PremierTeamDoesntExistException(this.team);
-}
-
-/// Exception for invalidly formatted riot id
-class InvalidRiotIdException implements Exception {
-  final String id;
-
-  const InvalidRiotIdException(this.id);
-}
-
-/// Miscellaneous tracker errors
-class TrackerApiException implements Exception {
-  final int statusCode;
-
-  const TrackerApiException(this.statusCode);
-}
+import '../../cache.dart';
+import '../../models/match_schedule.dart';
+import '../../models/premier_team.dart';
+import '../../models/valorant_regions.dart';
+import '../../neonbot.dart';
+import 'exceptions.dart';
 
 class TrackerApi {
   static const teamCacheTime = Duration(minutes: 10);
-  static const scheduleCacheTime = Duration(hours: 12);
-  static final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$');
+  static const teamCacheSize = 100;
+  static const scheduleCacheTime = Duration(days: 1);
+  static const scheduleCacheSize = 25;
+  static final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$', unicode: true);
 
-  static late final TrackerApi service;
+  static late final TrackerApi _instance;
 
-  static void init() {
-    service = TrackerApi._();
+  factory TrackerApi() {
+    return _instance;
   }
 
+  static void init() {
+    _instance = TrackerApi._();
+  }
+
+  final Logger logger = Logger("TrackerApi");
   late final TrackerWorker _worker;
   late final Finalizer<TrackerWorker> _finalizer;
 
-  // Maps team id to team
-  Map<String, PremierTeam> teamCache = {};
+  // Maps team uuid to team
+  late final Cache<String, PremierTeam> teamCache;
 
-  // Maps region id to upcoming matches
-  Map<String, MatchSchedule> scheduleCache = {};
-  final Logger logger = Logger("TrackerApi");
+  // Maps region to upcoming matches
+  late final Cache<Region, MatchSchedule> scheduleCache;
 
   TrackerApi._() {
     TrackerWorker.spawn().then((w) {
@@ -60,7 +46,24 @@ class TrackerApi {
       _finalizer = Finalizer<TrackerWorker>((w) => w.close());
       _finalizer.attach(this, _worker, detach: this);
     });
+
+    teamCache = Cache(
+        ttl: teamCacheTime, maxSize: teamCacheSize, retrieve: _searchByUuid);
+    scheduleCache = Cache(
+        ttl: scheduleCacheTime,
+        maxSize: scheduleCacheSize,
+        retrieve: _downloadSchedule);
   }
+
+  /// Retrieves a full premier team with id [uuid].
+  ///
+  /// Will throw a TrackerApiException if the team can't be retrieved
+  Future<PremierTeam> getTeam(String uuid) async =>
+      (await teamCache.get(uuid))!;
+
+  /// Retrieves the upcoming matches for the given region [region]
+  Future<MatchSchedule> getSchedule(Region region) async =>
+      (await scheduleCache.get(region))!;
 
   /// Tries to find a premier team using the [riotId].
   ///
@@ -92,14 +95,7 @@ class TrackerApi {
     throw PremierTeamDoesntExistException(riotId);
   }
 
-  Future<PremierTeam> searchByUuid(String uuid) async {
-    if (teamCache.containsKey(uuid)) {
-      var team = teamCache[uuid]!;
-      var age = DateTime.now().difference(team.lastUpdated);
-
-      if (age < teamCacheTime) return team;
-    }
-
+  Future<PremierTeam> _searchByUuid(String uuid) async {
     var url =
         Uri.https('tracker.gg', '/valorant/premier/teams/$uuid').toString();
     var response = await _worker.getValorantPremierData(url);
@@ -113,33 +109,26 @@ class TrackerApi {
 
     if (data["id"] == null) throw TrackerApiException(403);
 
+    var region = Region.fromId(data["zone"]) ??
+        (throw Exception("Got unknown region ${data["zone"]} from tracker"));
+
     var team = PremierTeam(data["id"], data["name"],
-        zone: data["zone"],
-        zoneName: data["zoneName"],
+        region: region,
         rank: data["rank"],
         leagueScore: data["leagueScore"],
         division: data["divisionName"],
         imageUrl: data["icon"]["imageUrl"] as String);
 
-    logger.fine("Creating team: $team");
-    teamCache[team.id] = team;
+    logger.fine("Downloaded team $team from tracker");
     return team;
   }
 
-  /// Gets the upcoming matches for the given region [region]
-  Future<MatchSchedule> getSchedule(String region) async {
-    if (scheduleCache.containsKey(region)) {
-      var schedule = scheduleCache[region]!;
-      var age = DateTime.now().difference(schedule.lastUpdated);
-      if (age < scheduleCacheTime) {
-        return schedule;
-      }
-    }
-
+  /// Gets the upcoming matches for the given region [region] frp, tracler
+  Future<MatchSchedule> _downloadSchedule(Region region) async {
     // Download the data with the worker since it's intensive. This avoids hanging
     // other computations in the main event queue
     var url = Uri.https(
-            'tracker.gg', '/valorant/premier/standings', {'region': region})
+            'tracker.gg', '/valorant/premier/standings', {'region': region.id})
         .toString();
     logger.fine("Fetching schedule for $region at $url");
     var response = await _worker.getValorantPremierData(url);
@@ -162,7 +151,6 @@ class TrackerApi {
 
     // Save the match schedule for future calls from other guilds
     var schedule = MatchSchedule(matches);
-    scheduleCache[region] = schedule;
     return schedule;
   }
 }
