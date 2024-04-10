@@ -1,6 +1,7 @@
 import 'package:nyxx/nyxx.dart';
 
 import '../events.dart';
+import '../style.dart';
 
 final milkTruckDiscord = Snowflake(1101930063819190425);
 
@@ -93,26 +94,21 @@ class MultiReaction extends Reaction {
 
 class Reactions {
   static final List<Reaction> reactions = [
-    SingleReaction("man",
-        ReactionBuilder(name: "MAN", id: Snowflake(1213704607658807336))),
-    SingleReaction("costco",
-        ReactionBuilder(name: "costco", id: Snowflake(1167897307811954828))),
-    SingleReaction("alecks",
-        ReactionBuilder(name: "alecks", id: Snowflake(1143687438045302864))),
+    SingleReaction("man", Emojis.man),
+    SingleReaction("costco", Emojis.costco),
+    SingleReaction("alecks", Emojis.alecks),
 
     // Friends
-    SingleReaction("swit",
-        ReactionBuilder(name: "sagelove", id: Snowflake(1226382840422207548))),
-    SingleReaction("lauten", ReactionBuilder(name: "🦑", id: null)),
-    SingleReaction("mh", ReactionBuilder(name: "🌽", id: null)),
-    SingleReaction("italian", ReactionBuilder(name: "🐧", id: null)),
-    SingleReaction("ben", ReactionBuilder(name: "🤓", id: null)),
-    SingleReaction("paige", ReactionBuilder(name: "🥛", id: null)),
-    SingleReaction("bloom", ReactionBuilder(name: "🪷", id: null)),
-    SingleReaction("glaze",
-        ReactionBuilder(name: "glaze", id: Snowflake(1226388046203584552))),
-    SingleReaction("kev",
-        ReactionBuilder(name: "kev", id: Snowflake(1226386493774237738))),
-    SingleReaction("neonbot", ReactionBuilder(name: "💙", id: null)),
+    SingleReaction("915", Emojis.neonsquish),
+    SingleReaction("swit", Emojis.sagelove),
+    SingleReaction("lauten", Emojis.discord("🦑")),
+    SingleReaction("mh", Emojis.discord("🌽")),
+    SingleReaction("italian", Emojis.discord("🐧")),
+    SingleReaction("ben", Emojis.discord("🤓")),
+    SingleReaction("paige", Emojis.discord("🥛")),
+    SingleReaction("bloom", Emojis.discord("🪷")),
+    SingleReaction("glaze", Emojis.glaze),
+    SingleReaction("kev", Emojis.kev),
+    SingleReaction("neonbot", Emojis.discord("💙")),
   ];
 }

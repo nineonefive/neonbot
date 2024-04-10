@@ -82,6 +82,9 @@ class NeonBot {
     botUser = await client.users.fetchCurrentUser();
     logger.info("Logged in as ${botUser.username}");
 
+    // Set the neonbot status
+    setPresence(online: true);
+
     // Connect events to the event bus
     _eventSubscriptions
       ..add(client.onMessageCreate.listen(eventBus.fire))
@@ -110,6 +113,7 @@ class NeonBot {
   /// Shuts down the bot, calling all shutdown tasks in order
   void shutdown() async {
     logger.info("Shutting down neonbot");
+    setPresence(online: false);
 
     while (_shutdownTasks.isNotEmpty) {
       final task = _shutdownTasks.removeFirst();
@@ -131,6 +135,23 @@ class NeonBot {
       run: run,
       priority: priority,
     ));
+  }
+
+  void setPresence({required bool online}) async {
+    if (online) {
+      client.updatePresence(PresenceBuilder(
+        status: CurrentUserStatus.online,
+        isAfk: false,
+        activities: [
+          ActivityBuilder(name: "VALORANT", type: ActivityType.game),
+        ],
+      ));
+    } else {
+      client.updatePresence(PresenceBuilder(
+        status: CurrentUserStatus.offline,
+        isAfk: true,
+      ));
+    }
   }
 }
 
