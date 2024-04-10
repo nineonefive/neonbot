@@ -5,9 +5,9 @@ import 'package:args/args.dart';
 import 'package:logging/logging.dart';
 import 'package:neonbot/src/neonbot.dart';
 
-const String version = '0.0.1';
+const String version = '0.0.2';
 
-final Map<String, String> Secrets = {};
+final Map<String, String> secrets = {};
 
 ArgParser buildParser() {
   return ArgParser()
@@ -36,25 +36,8 @@ void main(List<String> arguments) async {
     }
 
     // Configure logging
-    Level logLevel = Level.INFO;
-    if (results.wasParsed('debug')) {
-      print("Using debug mode");
-      logLevel = Level.FINE;
-    }
-    hierarchicalLoggingEnabled = true;
-    Logger.root.level = logLevel;
-    NeonBot.logLevel = logLevel;
-    Logger.root.onRecord.listen((record) {
-      String msg;
-      if (record.error != null) {
-        msg =
-            '[${record.loggerName}] ${record.level.name}: ${record.time}: ${record.message} ${record.error}';
-      } else {
-        msg =
-            '[${record.loggerName}] ${record.level.name}: ${record.time}: ${record.message}';
-      }
-      print(msg);
-    });
+    Level logLevel = (results.wasParsed('debug')) ? Level.FINE : Level.INFO;
+    configureLogging(logLevel);
 
     if (results.wasParsed("cloudflare")) {
       print("Using cloudflare mode");
@@ -63,10 +46,10 @@ void main(List<String> arguments) async {
 
     // Load api keys
     jsonDecode(File('api_keys.json').readAsStringSync())
-        .forEach((key, value) => Secrets[key] = value);
+        .forEach((key, value) => secrets[key] = value);
 
     // Connect the bot to discord
-    await NeonBot.instance.connect(Secrets['discord'] ?? "");
+    await NeonBot().connect(secrets['discord'] ?? "");
   } on FormatException catch (e, stackTrace) {
     // Print usage information if an invalid argument was provided.
     print(e.message);
@@ -74,4 +57,21 @@ void main(List<String> arguments) async {
     print('');
     printUsage(argParser);
   }
+}
+
+void configureLogging(Level logLevel) {
+  hierarchicalLoggingEnabled = true;
+  Logger.root.level = logLevel;
+  NeonBot.logLevel = logLevel;
+  Logger.root.onRecord.listen((record) {
+    String msg;
+    if (record.error != null) {
+      msg =
+          '[${record.loggerName}] ${record.level.name}: ${record.time}: ${record.message} ${record.error}';
+    } else {
+      msg =
+          '[${record.loggerName}] ${record.level.name}: ${record.time}: ${record.message}';
+    }
+    print(msg);
+  });
 }

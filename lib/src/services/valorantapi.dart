@@ -3,17 +3,20 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import '../style.dart';
+import '../models/valorant_maps.dart';
 
 class ValorantApi {
   static const String baseUrl = "https://valorant-api.com/v1";
   static const String imageBaseUrl = "https://media.valorant-api.com";
-  static final service = ValorantApi._();
+  static final _service = ValorantApi._();
+
+  factory ValorantApi() => _service;
 
   final Map<ValorantMap, String> mapIds = {};
 
   ValorantApi._();
 
+  /// Gets the ids for all of the maps
   Future<void> populateMapIds() async {
     var response = await http.get(Uri.parse("$baseUrl/maps"));
     var maps = jsonDecode(response.body)["data"] as List<dynamic>;
@@ -23,7 +26,8 @@ class ValorantApi {
     }
   }
 
-  Future<Uri?> getImageForMap(ValorantMap map) async {
+  /// Returns the url for the given map's image
+  Future<Uri?> getImageUrlForMap(ValorantMap map) async {
     if (mapIds.isEmpty) {
       await populateMapIds();
     }

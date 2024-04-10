@@ -10,7 +10,7 @@ extension PremierTeamEmbeddable on PremierTeam {
       "**Rank**: \\#$rank",
       "**Season points**: $leagueScore",
       "**Division**: $division",
-      "**Zone**: $zoneName"
+      "**Zone**: ${region.name}"
     ].join("\n");
 
     var timeString = DateTime.now().difference(lastUpdated).formatted;
@@ -18,7 +18,7 @@ extension PremierTeamEmbeddable on PremierTeam {
     var footer = EmbedFooterBuilder(text: "Last updated $timeString");
 
     var embed = EmbedBuilder(
-        title: riotId,
+        title: name,
         description: description,
         footer: footer,
         color: Colors.primary,

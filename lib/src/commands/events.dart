@@ -15,7 +15,7 @@ final clear = ChatCommand(
       }
 
       for (var event in events) {
-        if (event.creatorId == NeonBot.instance.botUser.id) {
+        if (event.creatorId == NeonBot().userId) {
           await event.delete();
         }
       }

@@ -1,10 +1,10 @@
 // Otherwise construct the configuration modal
 import 'package:nyxx/nyxx.dart';
 
-import '../services/preferences.dart';
+import '../services/guilds.dart';
 
 Future<MessageBuilder> createConfigForm(Snowflake guildId) async {
-  var gp = await GuildSettings.service.getForGuild(guildId);
+  var gp = await GuildService().getPreferences(guildId);
   var components = [
     // Selection modal for the announcement channel
     ActionRowBuilder(components: [
@@ -31,13 +31,12 @@ Future<MessageBuilder> createConfigForm(Snowflake guildId) async {
     // Selection modal for the role mention
     ActionRowBuilder(components: [
       SelectMenuBuilder.roleSelect(
-          customId: "roleMention",
-          placeholder: "Role to tag for signups",
+          customId: "signupRole",
+          placeholder: "Signup role",
           minValues: 1,
           maxValues: 1,
-          defaultValues: gp.hasTagForSignupRole
-              ? [DefaultValue.role(id: gp.tagForSignupRole)]
-              : null)
+          defaultValues:
+              gp.hasSignupRole ? [DefaultValue.role(id: gp.signupRole)] : null)
     ]),
     ActionRowBuilder(components: [
       ButtonBuilder(
@@ -56,9 +55,9 @@ Future<MessageBuilder> createConfigForm(Snowflake guildId) async {
 // ignore: prefer_interpolation_to_compose_strings
   var content = "Update the server config:\n" +
       [
-        "- **Announcements channel**: Match signups will be posted here",
-        "- **Match voice call channel**: Events will be hosted in this channel",
-        "- **Mention role**: This role will be tagged when new events are posted"
+        "- **Announcements channel**: New schedule notifications will be posted here",
+        "- **Voice channel**: Events will be hosted in this voice channel",
+        "- **Signup role**: Members with this role will be counted towards event signups",
       ].join("\n");
 
   var messageBuilder = MessageBuilder(content: content, components: components);

@@ -8,9 +8,9 @@ class Field {
   Field get notNull => Field('$type NOT NULL');
   Field get unique => Field('$type UNIQUE');
 
-  static const INTEGER = Field('INTEGER');
-  static const TEXT = Field('TEXT');
-  static const JSON = Field('JSON');
+  static const integer = Field('INTEGER');
+  static const text = Field('TEXT');
+  static const json = Field('JSON');
 }
 
 class Table {
@@ -32,10 +32,10 @@ class Table {
 }
 
 class Tables {
-  static final GuildPreferences = Table("guild_preferences", {
-    "id": Field.INTEGER.asPrimary,
-    "guildId": Field.INTEGER.notNull.unique,
-    "preferences": Field.TEXT.notNull
+  static final guildPreferences = Table("guild_preferences", {
+    "id": Field.integer.asPrimary,
+    "guildId": Field.integer.notNull.unique,
+    "preferences": Field.text.notNull
   });
 }
 
@@ -50,7 +50,7 @@ class DatabaseService {
   void init(String databasePath) {
     _db = sqlite3.open(databasePath);
 
-    createTable(Tables.GuildPreferences);
+    createTable(Tables.guildPreferences);
   }
 
   /// Creates the table defined by [schema]

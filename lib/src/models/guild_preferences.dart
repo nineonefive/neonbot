@@ -1,70 +1,73 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:nyxx/nyxx.dart';
 
+import '../services/tracker/tracker.dart';
 import 'premier_team.dart';
-import '../services/db.dart';
-import '../services/tracker.dart';
+import 'valorant_regions.dart';
 
-final table = Tables.GuildPreferences;
 final logger = Logger("GuildPreferences");
 
 class GuildPreferences {
   final Snowflake guildId;
+
   PartialPremierTeam partialTeam;
-  Snowflake announcementsChannel;
-  Snowflake voiceChannel;
-  Snowflake tagForSignupRole;
-
   bool get hasPremierTeam => partialTeam != PartialPremierTeam.none;
-  bool get hasAnnouncementsChannel => announcementsChannel != Snowflake.zero;
-  bool get hasVoiceChannel => voiceChannel != Snowflake.zero;
-  bool get hasTagForSignupRole => tagForSignupRole != Snowflake.zero;
 
+  Snowflake announcementsChannel;
+  bool get hasAnnouncementsChannel => announcementsChannel != Snowflake.zero;
+
+  Snowflake voiceChannel;
+  bool get hasVoiceChannel => voiceChannel != Snowflake.zero;
+
+  Snowflake signupRole;
+  bool get hasSignupRole => signupRole != Snowflake.zero;
+
+  GuildPreferences(
+    this.guildId, {
+    this.partialTeam = PartialPremierTeam.none,
+    this.announcementsChannel = Snowflake.zero,
+    this.voiceChannel = Snowflake.zero,
+    this.signupRole = Snowflake.zero,
+  });
+
+  /// Retrieves the premier team for this guild, throwing an error if one is not set
   Future<PremierTeam> get premierTeam async {
     return hasPremierTeam
-        ? await TrackerApi.service.searchByUuid(partialTeam.id)
+        ? await TrackerApi().getTeam(partialTeam.id)
         : throw Exception("Calling get premierTeam on a guild without one set");
   }
 
-  Future<String> get zone async {
-    if (!hasPremierTeam) return "NA_US_EAST";
+  /// Retrieves the zone for this guild
+  /// Todo: Store zone in guild preferences directly
+  Future<Region> get region async {
+    if (!hasPremierTeam) return Region.usEast;
     var team = await premierTeam;
-    return team.zone;
+    return team.region;
   }
 
-  GuildPreferences(this.guildId,
-      {this.partialTeam = PartialPremierTeam.none,
-      this.announcementsChannel = Snowflake.zero,
-      this.voiceChannel = Snowflake.zero,
-      this.tagForSignupRole = Snowflake.zero});
-
-  void persistToDb() {
-    DatabaseService.service!.execute(
-        "UPDATE ${table.name} SET preferences = ? WHERE guildId = ?",
-        [toJson(), guildId.value]);
-  }
-
-  String toJson() {
-    return jsonEncode({
+  Map<String, dynamic> toJson() {
+    return {
       "guildId": guildId.value,
-      "premierTeamId": partialTeam.id,
-      "premierTeamName": partialTeam.name,
+      "premierTeam": partialTeam.toJson(),
       "announcementsChannel": announcementsChannel.value,
       "voiceChannel": voiceChannel.value,
-      "tagForSignupRole": tagForSignupRole.value
-    });
+      "signupRole": signupRole.value
+    };
   }
 
-  static GuildPreferences fromJson(String json) {
-    var data = jsonDecode(json);
-    var team =
-        PartialPremierTeam(data["premierTeamId"], data["premierTeamName"]);
-    return GuildPreferences(Snowflake(data["guildId"]),
-        partialTeam: team,
-        announcementsChannel: Snowflake(data["announcementsChannel"]),
-        voiceChannel: Snowflake(data["voiceChannel"]),
-        tagForSignupRole: Snowflake(data["tagForSignupRole"]));
+  static GuildPreferences fromJson(Map<String, dynamic> data) {
+    return GuildPreferences(
+      Snowflake(data["guildId"]),
+      partialTeam: PartialPremierTeam.fromJson(data["premierTeam"]),
+      announcementsChannel: Snowflake(data["announcementsChannel"] ?? 0),
+      voiceChannel: Snowflake(data["voiceChannel"] ?? 0),
+      signupRole: Snowflake(data["signupRole"] ?? 0),
+    );
+  }
+
+  @override
+  String toString() {
+    return 'GuildPreferences($guildId)';
   }
 }

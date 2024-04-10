@@ -1,5 +1,7 @@
 import 'package:nyxx/nyxx.dart';
 
+import '../models/valorant_maps.dart';
+import '../models/valorant_regions.dart';
 import '../util.dart';
 import '../models/match_schedule.dart';
 import '../style.dart';
@@ -8,7 +10,7 @@ import '../style.dart';
 ///
 /// Shows upcoming matches, localized to the zone.
 extension ScheduleEmbeddable on MatchSchedule {
-  EmbedBuilder asEmbed(String zone, String zoneName) {
+  EmbedBuilder asEmbed(Region region) {
     String scheduleString = "";
     ValorantMap? lastMap;
     int mapsShown = 0;
@@ -29,13 +31,13 @@ extension ScheduleEmbeddable on MatchSchedule {
 
       // Print match
       scheduleString +=
-          "- ${match.matchType.name} ${match.time.toDiscord(zone)}\n";
+          "- ${match.matchType.name} ${match.startTime.toDiscord(region)}\n";
     }
 
     return EmbedBuilder()
       ..color = Colors.primary
       ..footer = EmbedFooterBuilder(text: "Times shown in your local time")
-      ..title = "$zoneName Schedule"
+      ..title = "${region.name} Schedule"
       ..description = scheduleString;
   }
 }

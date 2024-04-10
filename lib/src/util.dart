@@ -2,7 +2,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
-import 'package:timezone/timezone.dart' as tz;
+
+import 'models/valorant_regions.dart';
 
 extension DataRetriever on Snowflake {
   String? get channelMention {
@@ -38,6 +39,7 @@ extension FriendlyFormatting on Duration {
   }
 }
 
+/// Command check requiring the user to have role [roleName]
 class UserHasRoleCheck extends Check {
   UserHasRoleCheck(String roleName)
       : super((context) async {
@@ -60,36 +62,11 @@ class UserHasRoleCheck extends Check {
         }, name: "has-role $roleName");
 }
 
-var regionLocations = {
-  // Americas
-  "NA_US_EAST": "America/New_York",
-  "NA_US_WEST": "America/Los_Angeles",
-  "LATAM_NORTH": "America/New_York",
-  "LATAM_SOUTH": "America/Santiago",
-  "BR_BRAZIL": "America/Sao_Paulo",
-
-  // Asia
-  "AP_ASIA": "Asia/Taipei",
-  "AP_JAPAN": "Asia/Tokyo",
-  "AP_OCEANIA": "Australia/Sydney",
-  "AP_SOUTH_ASIA": "Asia/Kolkata",
-  "KR_KOREA": "Asia/Seoul",
-
-  // EMEA
-  "EU_NORTH": "Europe/London",
-  "EU_EAST": "Europe/Warsaw",
-  "EU_DACH": "Europe/Berlin",
-  "EU_IBIT": "Europe/Madrid",
-  "EU_FRANCE": "Europe/Paris",
-  "EU_MIDDLE_EAST": "Asia/Qatar",
-  "EU_TURKEY": "Europe/Istanbul"
-}.map((k, v) => MapEntry(k, tz.getLocation(v)));
-
 /// Turns a DateTime into a discord timestamp localied to region [region]
 extension DiscordTimestamp on DateTime {
-  String toDiscord(String region) {
+  String toDiscord(Region region) {
     var epochSeconds = millisecondsSinceEpoch ~/ 1000;
-    var localized = tz.TZDateTime.from(this, regionLocations[region]!);
+    var localized = region.localizeTime(this);
     var weekday = DateFormat("EEEE").format(localized);
     return "$weekday <t:$epochSeconds:t>";
   }

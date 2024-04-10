@@ -10,14 +10,14 @@ extension GuildPreferencesEmbeddable on GuildPreferences {
     String announcementsChannel =
         this.announcementsChannel.channelMention ?? "None";
     String teamName = hasPremierTeam ? partialTeam.name : "None";
-    String roleMention = tagForSignupRole.roleMention ?? "None";
+    String roleName = signupRole.roleMention ?? "None";
 
     return EmbedBuilder(
       title: "Server config",
       description: [
         "**Announcements channel**: $announcementsChannel",
         "**Voice channel**: $voiceChannel",
-        "**Mention role**: $roleMention",
+        "**Signup role**: $roleName",
         "**Premier team**: $teamName",
       ].join("\n"),
       color: Colors.primary,
