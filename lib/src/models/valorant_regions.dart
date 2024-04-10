@@ -109,6 +109,14 @@ enum Region {
   tz.TZDateTime localizeTime(DateTime time) =>
       tz.TZDateTime.from(time, location);
 
+  Map<String, String> toJson() {
+    return {'id': id};
+  }
+
+  static Region fromJson(Map<String, dynamic> json) {
+    return fromId(json['id'])!;
+  }
+
   /// Returns the region for [id]
   static Region? fromId(String id) {
     for (var region in values) {

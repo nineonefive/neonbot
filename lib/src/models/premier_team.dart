@@ -3,7 +3,7 @@ import 'valorant_regions.dart';
 
 class PremierTeam {
   final String id;
-  final String riotId;
+  final String name;
   final Region region;
   final String imageUrl;
 
@@ -11,32 +11,59 @@ class PremierTeam {
   int leagueScore = 0;
   String division = '';
 
-  List<int> _imagePng = [];
-  Future<List<int>> get imagePng async {
-    if (imageUrl.isEmpty) return [];
-
-    if (_imagePng.isEmpty) {
-      _imagePng = await downloadImage(Uri.parse(imageUrl));
-    }
-
-    return _imagePng;
-  }
-
   /// Last time we fetched data from tracker.gg
   late DateTime lastUpdated;
 
-  PremierTeam(this.id, this.riotId,
-      {this.region = Region.usEast,
-      this.rank = 0,
-      this.leagueScore = 0,
-      this.division = '',
-      this.imageUrl = ''}) {
+  /// Stores the team's icon
+  List<int> _teamIcon = [];
+  Future<List<int>> get icon async {
+    if (imageUrl.isEmpty) return [];
+
+    if (_teamIcon.isEmpty) {
+      _teamIcon = await downloadImage(Uri.parse(imageUrl));
+    }
+
+    return _teamIcon;
+  }
+
+  PremierTeam(
+    this.id,
+    this.name, {
+    this.region = Region.usEast,
+    this.rank = 0,
+    this.leagueScore = 0,
+    this.division = '',
+    this.imageUrl = '',
+  }) {
     lastUpdated = DateTime.now();
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'region': region.toJson(),
+      // Other fields are transient statistics
+    };
+  }
+
+  static PremierTeam fromJson(Map<String, dynamic> data) {
+    var team = PremierTeam(
+      data['id'],
+      data['name'],
+      region: Region.fromJson(data['region']),
+      rank: data['rank'] as int? ?? 0,
+      leagueScore: data['leagueScore'] as int? ?? 0,
+      division: data['division'] as String? ?? '',
+      imageUrl: data['imageUrl'] as String? ?? '',
+    );
+
+    return team;
   }
 
   @override
   String toString() {
-    return 'PremierTeam($riotId)';
+    return 'PremierTeam($name)';
   }
 
   @override

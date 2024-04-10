@@ -43,6 +43,7 @@ class MatchScheduler {
   MatchScheduler._(this.client) {
     // Schedule a recurring update
     timer = Timer.periodic(tickRate, tryTick);
+    NeonBot().onShutdown(timer.cancel);
   }
 
   static void init(NyxxGateway client) {
@@ -131,7 +132,7 @@ class MatchScheduler {
       // Try to pair the match to an existing discord event, skipping to the
       // next match if so
       for (var event in upcomingEvents) {
-        if (event.scheduledStartTime == match.time) {
+        if (event.scheduledStartTime == match.startTime) {
           continue nextMatch;
         }
       }
@@ -152,8 +153,8 @@ class MatchScheduler {
         name: name,
         description: description,
         channelId: gp.voiceChannel,
-        scheduledStartTime: match.time,
-        scheduledEndTime: match.time.add(match.matchType.expectedDuration),
+        scheduledStartTime: match.startTime,
+        scheduledEndTime: match.startTime.add(match.matchType.expectedDuration),
         privacyLevel: PrivacyLevel.guildOnly,
         type: ScheduledEntityType.voice,
         image: await match.map.image,

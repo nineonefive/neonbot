@@ -18,7 +18,7 @@ extension PremierTeamEmbeddable on PremierTeam {
     var footer = EmbedFooterBuilder(text: "Last updated $timeString");
 
     var embed = EmbedBuilder(
-        title: riotId,
+        title: name,
         description: description,
         footer: footer,
         color: Colors.primary,

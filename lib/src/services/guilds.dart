@@ -8,9 +8,10 @@ import '../embeds.dart';
 import '../events.dart';
 import '../events/interaction_create.dart';
 import '../models/guild_preferences.dart';
+import '../neonbot.dart';
 import 'db.dart';
 
-final table = Tables.GuildPreferences;
+final table = Tables.guildPreferences;
 
 class GuildService {
   static final _instance = GuildService._();
@@ -25,15 +26,19 @@ class GuildService {
 
   GuildService._() {
     _cache = Cache(
-        retrieve: (guildId) async {
-          var gp = await _load(guildId);
-          return gp ?? await _createNew(guildId);
-        },
-        onEvict: (guildId, gp) async {
-          save(gp);
-        },
-        maxSize: 100);
+      retrieve: (guildId) async {
+        var gp = await _loadPreferences(guildId);
+        return gp ?? await _defaultPreferences(guildId);
+      },
+      onEvict: (guildId, gp) async {
+        savePreferences(gp);
+      },
+      maxSize: 100,
+    );
     _registerEvents();
+
+    // Saves all preferences to the database since evict = true
+    NeonBot().onShutdown(_cache.clear, priority: Priority.low);
   }
 
   /// Checks if the settings for guild [guildId] have been loaded
@@ -51,11 +56,11 @@ class GuildService {
   /// for trying to undo transactions
   Future<GuildPreferences> reloadPreferences(Snowflake guildId) async {
     _cache.remove(guildId);
-    return (await _load(guildId))!;
+    return (await _loadPreferences(guildId))!;
   }
 
   /// Saves the guild settings [gp] to the database
-  Future<void> save(GuildPreferences gp) async {
+  Future<void> savePreferences(GuildPreferences gp) async {
     DatabaseService.service!.execute(
         "UPDATE ${table.name} SET preferences = ? WHERE guildId = ?",
         [jsonEncode(gp.toJson()), gp.guildId.value]);
@@ -63,7 +68,7 @@ class GuildService {
 
   /// Loads the settings for guild [guildId] from the database, returning null
   /// if not found
-  Future<GuildPreferences?> _load(Snowflake guildId) async {
+  Future<GuildPreferences?> _loadPreferences(Snowflake guildId) async {
     Row? row;
     row = DatabaseService.service!.select(
         "SELECT preferences FROM ${table.name} WHERE guildId = ?",
@@ -78,7 +83,7 @@ class GuildService {
 
   /// Creates the new default settings for guild [guildId] and
   /// saves to database
-  Future<GuildPreferences> _createNew(Snowflake guildId) async {
+  Future<GuildPreferences> _defaultPreferences(Snowflake guildId) async {
     var gp = GuildPreferences(guildId);
     DatabaseService.service!.execute(
         "INSERT INTO ${table.name} (guildId, preferences) VALUES (?, ?)",
@@ -123,7 +128,7 @@ class GuildService {
               MessageUpdateBuilder(content: ":hourglass:", components: []),
               updateMessage: true);
 
-          await GuildService().save(gp);
+          await GuildService().savePreferences(gp);
           await interaction.updateOriginalResponse(MessageUpdateBuilder(
               content: "", embeds: [await gp.asEmbed], components: []));
 

@@ -7,7 +7,7 @@ import 'package:neonbot/src/neonbot.dart';
 
 const String version = '0.0.2';
 
-final Map<String, String> Secrets = {};
+final Map<String, String> secrets = {};
 
 ArgParser buildParser() {
   return ArgParser()
@@ -46,10 +46,10 @@ void main(List<String> arguments) async {
 
     // Load api keys
     jsonDecode(File('api_keys.json').readAsStringSync())
-        .forEach((key, value) => Secrets[key] = value);
+        .forEach((key, value) => secrets[key] = value);
 
     // Connect the bot to discord
-    await NeonBot().connect(Secrets['discord'] ?? "");
+    await NeonBot().connect(secrets['discord'] ?? "");
   } on FormatException catch (e, stackTrace) {
     // Print usage information if an invalid argument was provided.
     print(e.message);

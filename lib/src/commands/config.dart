@@ -57,7 +57,7 @@ final _configTeam = ChatCommand(
 
         // Sync to database and pull the team details into tracker service
         Future(() async {
-          await GuildService().save(preferences);
+          await GuildService().savePreferences(preferences);
         });
       } catch (error) {
         message = switch (error) {

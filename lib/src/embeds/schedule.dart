@@ -31,7 +31,7 @@ extension ScheduleEmbeddable on MatchSchedule {
 
       // Print match
       scheduleString +=
-          "- ${match.matchType.name} ${match.time.toDiscord(region)}\n";
+          "- ${match.matchType.name} ${match.startTime.toDiscord(region)}\n";
     }
 
     return EmbedBuilder()

@@ -14,9 +14,9 @@ import '../../neonbot.dart';
 import 'exceptions.dart';
 
 class TrackerApi {
-  static const teamCacheTime = Duration(minutes: 10);
+  static const teamCacheTTL = Duration(minutes: 10);
   static const teamCacheSize = 100;
-  static const scheduleCacheTime = Duration(days: 1);
+  static const scheduleCacheTTL = Duration(days: 1);
   static const scheduleCacheSize = 25;
   static final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$', unicode: true);
 
@@ -32,7 +32,6 @@ class TrackerApi {
 
   final Logger logger = Logger("TrackerApi");
   late final TrackerWorker _worker;
-  late final Finalizer<TrackerWorker> _finalizer;
 
   // Maps team uuid to team
   late final Cache<String, PremierTeam> teamCache;
@@ -43,16 +42,19 @@ class TrackerApi {
   TrackerApi._() {
     TrackerWorker.spawn().then((w) {
       _worker = w;
-      _finalizer = Finalizer<TrackerWorker>((w) => w.close());
-      _finalizer.attach(this, _worker, detach: this);
+      NeonBot().onShutdown(_worker.close);
     });
 
     teamCache = Cache(
-        ttl: teamCacheTime, maxSize: teamCacheSize, retrieve: _searchByUuid);
+      ttl: teamCacheTTL,
+      maxSize: teamCacheSize,
+      retrieve: _searchByUuid,
+    );
     scheduleCache = Cache(
-        ttl: scheduleCacheTime,
-        maxSize: scheduleCacheSize,
-        retrieve: _downloadSchedule);
+      ttl: scheduleCacheTTL,
+      maxSize: scheduleCacheSize,
+      retrieve: _downloadSchedule,
+    );
   }
 
   /// Retrieves a full premier team with id [uuid].
@@ -84,10 +86,8 @@ class TrackerApi {
       for (dynamic resultSet in data["resultSets"]) {
         if (resultSet["type"] == 'premier-team' &&
             resultSet["results"].length == 1) {
-          var team = resultSet["results"][0];
-          var uuid = team["id"];
-          riotId = team["name"];
-          return PartialPremierTeam(uuid, riotId);
+          var result = resultSet["results"][0];
+          return PartialPremierTeam.fromJson(result);
         }
       }
     }
@@ -95,6 +95,9 @@ class TrackerApi {
     throw PremierTeamDoesntExistException(riotId);
   }
 
+  /// Retrieves a team from tracker by their [uuid].
+  ///
+  /// Throws an error if the team can't be found.
   Future<PremierTeam> _searchByUuid(String uuid) async {
     var url =
         Uri.https('tracker.gg', '/valorant/premier/teams/$uuid').toString();
@@ -109,15 +112,10 @@ class TrackerApi {
 
     if (data["id"] == null) throw TrackerApiException(403);
 
-    var region = Region.fromId(data["zone"]) ??
-        (throw Exception("Got unknown region ${data["zone"]} from tracker"));
-
-    var team = PremierTeam(data["id"], data["name"],
-        region: region,
-        rank: data["rank"],
-        leagueScore: data["leagueScore"],
-        division: data["divisionName"],
-        imageUrl: data["icon"]["imageUrl"] as String);
+    data['region'] = {'id': data['zone']};
+    data["imageUrl"] = data["icon"]["imageUrl"] as String;
+    data["division"] = data["divisionName"];
+    var team = PremierTeam.fromJson(data);
 
     logger.fine("Downloaded team $team from tracker");
     return team;
@@ -145,7 +143,11 @@ class TrackerApi {
         (data.values.first as Map<String, dynamic>)["events"] as List<dynamic>;
     var matches = matchDicts
         .whereType<Map<String, dynamic>>()
-        .map(Match.tryParse)
+        .map((data) => Match.fromJson({
+              'matchType': data['typeName'],
+              'startTime': data['startTime'],
+              'map': data['name'],
+            }))
         .where((m) => m.matchType != MatchType.unknown)
         .toList();
 
@@ -232,7 +234,7 @@ class TrackerWorker {
         var text = scriptTag.innerHTML ?? "";
         if (text.contains("window.__INITIAL_STATE__ = ")) {
           text = text.replaceAll("window.__INITIAL_STATE__ = ", "");
-          var data = json.decode(text)["valorantPremier"];
+          var data = jsonDecode(text)["valorantPremier"];
           return data;
         }
       }

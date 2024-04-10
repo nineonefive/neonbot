@@ -6,6 +6,7 @@ final milkTruckDiscord = Snowflake(1101930063819190425);
 
 class AutoreactService {
   static late final AutoreactService _instance;
+  static final splitPattern = RegExp(r"\s+");
 
   static void init() {
     _instance = AutoreactService._();
@@ -28,7 +29,7 @@ class AutoreactService {
   /// Applies each reaction to the message [event.message]
   Future<void> reactToMessage(MessageCreateEvent event) async {
     var reactions = event.message.content
-        .split(" ")
+        .split(splitPattern)
         .map((word) => word.trim().toLowerCase())
         .map((word) => _index[word])
         .nonNulls
