@@ -4,6 +4,7 @@ import 'package:nyxx/nyxx.dart';
 
 import '../models/match_schedule.dart';
 import '../neonbot.dart';
+import '../style.dart';
 import '../util.dart';
 import 'guilds.dart';
 import 'tracker/tracker.dart';
@@ -34,14 +35,14 @@ class MatchScheduler {
       (throw Exception("Match scheduler must be initialized with init()"));
   static MatchScheduler? _instance;
 
+  final Map<Snowflake, DateTime> _lastUpdated = {};
+  final Logger logger = Logger("MatchScheduler");
   final NyxxGateway client;
   late final Timer timer;
-  final Logger logger = Logger("MatchScheduler");
-
-  final Map<Snowflake, DateTime> _lastUpdated = {};
 
   MatchScheduler._(this.client) {
     // Schedule a recurring update
+    logger.info("Match scheduler service started");
     timer = Timer.periodic(tickRate, tryTick);
     NeonBot().onShutdown(timer.cancel);
   }
@@ -50,27 +51,34 @@ class MatchScheduler {
     _instance = MatchScheduler._(client);
   }
 
-  void tryTick(Timer timer) async {
+  Future<void> tryTick(Timer timer) async {
     try {
-      tick();
+      await tick();
     } catch (e, stacktrace) {
       logger.warning("Error in tick(): $e, $stacktrace");
     }
   }
 
-  void tick() async {
-    logger.fine("Updating guild match schedules");
-
+  Future<void> tick() async {
     var guilds =
         List.of(client.guilds.cache.values); // Avoid concurrent modification
+
+    logger.fine("tick() called with ${guilds.length} guilds");
+
     for (var guild in guilds) {
+      logger.fine("Updating schedule for ${guild.id}");
+
       // Get their upcoming events that we scheduled
       dynamic upcomingEvents = (await guild.scheduledEvents.list())
           .where((event) => event.creatorId == NeonBot().userId)
           .toList();
 
+      logger.fine("Has ${upcomingEvents.length} upcoming events");
+
       // Cleanup old events, and possibly start the current match
       upcomingEvents = await cleanupOldEvents(upcomingEvents);
+      logger.fine("Has ${upcomingEvents.length} upcoming events after cleanup");
+
       await startActiveEvents(upcomingEvents);
 
       // Get the last time we updated this particular guild's events
@@ -97,7 +105,7 @@ class MatchScheduler {
             var announcement = await channel.sendMessage(MessageBuilder(
                 content:
                     "${gp.signupRole.roleMention} New matches were scheduled! Check out the Events tab to sign up."));
-            await announcement.react(ReactionBuilder(name: "✅", id: null));
+            await announcement.react(Emojis.discord("✅"));
           }
         } catch (e) {
           // Our announcements channel is invalid if we get an error.

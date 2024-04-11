@@ -19,10 +19,12 @@ import 'services/tracker/tracker.dart';
 // - guildMessageReactions: Needed for auto react or possibly signup mechanisms
 // - guildMessages: Needed for autoreact
 // - guildScheduledEvents: Needed for scheduling matches to the discord events list
+// - guilds: So we receive GUILD_CREATE so we know what servers we're in
 // - messageContent: needed for autoreactions
 final Flags<GatewayIntents> intents = GatewayIntents.guildMessageReactions |
     GatewayIntents.guildMessages |
     GatewayIntents.guildScheduledEvents |
+    GatewayIntents.guilds |
     GatewayIntents.messageContent;
 
 class NeonBot {
