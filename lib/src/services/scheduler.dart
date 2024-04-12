@@ -226,19 +226,20 @@ class MatchScheduler {
       if (event.status != EventStatus.scheduled ||
           event.creatorId != NeonBot().userId) continue;
 
+      // Check if we're in the warmup period
+      // Todo: Refactor the warmup period into a guild setting?
+      var startTime = event.scheduledStartTime.subtract(warmupPeriod);
+      if (startTime.isAfter(now)) continue;
+
       var signups = await countEventSignups(event);
       logger.fine("Found $signups signups for event ${event.id}");
 
       // Can't start a premier match without 5 players
       if (signups < 5) continue;
 
-      // Check if we're in the warmup period, and if so, start the event
-      // Todo: Refactor the warmup period into a guild setting?
-      if (event.scheduledStartTime.subtract(warmupPeriod).isBefore(now)) {
-        logger.fine("In warmup period. Starting event");
-        await event
-            .update(ScheduledEventUpdateBuilder(status: EventStatus.active));
-      }
+      logger.fine("Starting event ${event.id}");
+      await event
+          .update(ScheduledEventUpdateBuilder(status: EventStatus.active));
     }
   }
 
