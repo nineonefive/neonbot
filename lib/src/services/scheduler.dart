@@ -254,13 +254,11 @@ class MatchScheduler {
     }
 
     var interestedMembers = await event
-        .listUsers()
+        .listUsers(withMembers: true)
         .then((users) => users.map((user) => user.member));
 
-    int signups = interestedMembers
-        .where((member) =>
-            member != null &&
-            member.roles.any((role) => role.id == gp.signupRole))
+    int signups = interestedMembers.nonNulls
+        .where((member) => member.roles.any((role) => role.id == gp.signupRole))
         .length;
 
     return signups;
