@@ -50,7 +50,7 @@ class SentimentService {
     // Send our text to hugging face model
     var response =
         await http.post(url, headers: headers, body: {"inputs": text});
-    var output = jsonDecode(response.body)[0] as List<dynamic>;
+    var output = (jsonDecode(response.body)[0] ?? []) as List<dynamic>;
 
     // Sort the output by weight and return the sentiment with the
     // largest predicted value.

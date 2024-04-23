@@ -140,14 +140,19 @@ class RandomReaction extends MultiReaction {
 
 class SentimentReaction extends Reaction {
   final Map<Sentiment, Reaction> reactions;
+  Logger logger = Logger("SentimentReaction");
 
   SentimentReaction(super.keyword, this.reactions);
 
   @override
   Future<void> react(Message message) async {
-    var sentiment = await SentimentService().getSentiment(message.content);
-    var reaction = reactions[sentiment];
-    await reaction?.react(message);
+    try {
+      var sentiment = await SentimentService().getSentiment(message.content);
+      var reaction = reactions[sentiment];
+      await reaction?.react(message);
+    } catch (e, stacktrace) {
+      logger.warning("Error in react(): $e, $stacktrace");
+    }
   }
 }
 
