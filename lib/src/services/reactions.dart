@@ -1,7 +1,12 @@
+import 'dart:math';
+
 import 'package:nyxx/nyxx.dart';
 
 import '../events.dart';
+import '../neonbot.dart';
 import '../style.dart';
+import '../util.dart';
+import 'sentiment.dart';
 
 final milkTruckDiscord = Snowflake(1101930063819190425);
 
@@ -21,15 +26,43 @@ class AutoreactService {
   AutoreactService._() {
     eventBus
         .on<MessageCreateEvent>()
-        .where((event) => event.guildId == milkTruckDiscord)
+        .where(messagePredicate)
         .listen(reactToMessage);
 
     _createIndex();
   }
 
+  bool messagePredicate(MessageCreateEvent event) {
+    // If discord didn't give us message content (due to insufficient permissions),
+    // then don't pass to the react function
+    if (event.message.content.isEmpty) {
+      return false;
+    }
+
+    // Always listen in milk truck discord
+    if (event.guildId == milkTruckDiscord) {
+      return true;
+    }
+
+    // Check if we're mentioned
+    if (event.mentions.any((u) => u.id == NeonBot().userId)) {
+      return true;
+    }
+
+    return false;
+  }
+
   /// Applies each reaction to the message [event.message]
   Future<void> reactToMessage(MessageCreateEvent event) async {
-    var reactions = event.message.content
+    var content = event.message.content;
+
+    // Replace the neonbot mention with neonbot
+    if (event.mentions.any((u) => u.id == NeonBot().userId)) {
+      content =
+          content.replaceFirst(NeonBot().userId.userMention ?? "", "neonbot");
+    }
+
+    var reactions = content
         .split(splitPattern)
         .map((word) => word.trim().toLowerCase())
         .map((word) => _index[word])
@@ -92,6 +125,32 @@ class MultiReaction extends Reaction {
   String toString() => "MultiReaction($keyword)";
 }
 
+class RandomReaction extends MultiReaction {
+  RandomReaction(super.keyword, super.emojis);
+
+  @override
+  Future<void> react(Message message) async {
+    var index = Random().nextInt(emojis.length);
+    await message.react(emojis[index]);
+  }
+
+  @override
+  String toString() => "RandomReaction($keyword)";
+}
+
+class SentimentReaction extends Reaction {
+  final Map<Sentiment, Reaction> reactions;
+
+  SentimentReaction(super.keyword, this.reactions);
+
+  @override
+  Future<void> react(Message message) async {
+    var sentiment = await SentimentService().getSentiment(message.content);
+    var reaction = reactions[sentiment];
+    await reaction?.react(message);
+  }
+}
+
 class Reactions {
   static final List<Reaction> reactions = [
     SingleReaction("man", Emojis.man),
@@ -109,6 +168,18 @@ class Reactions {
     SingleReaction("bloom", Emojis.discord("🪷")),
     SingleReaction("glaze", Emojis.glaze),
     SingleReaction("kev", Emojis.kev),
-    SingleReaction("neonbot", Emojis.discord("💙")),
+    SentimentReaction("neonbot", {
+      Sentiment.neutral:
+          RandomReaction("neutral", [Emojis.discord("💙"), Emojis.neonsweat]),
+      Sentiment.negative: RandomReaction("negative", [
+        Emojis.neonsad,
+        Emojis.neonangry,
+        Emojis.neonrage,
+        Emojis.neonthisisfine,
+        Emojis.oridead
+      ]),
+      Sentiment.positive: RandomReaction(
+          "positive", [Emojis.neonlove, Emojis.neonlove2, Emojis.oriheart])
+    }),
   ];
 }

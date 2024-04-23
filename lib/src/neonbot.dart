@@ -10,9 +10,11 @@ import 'package:timezone/data/latest.dart' as tz;
 
 import 'commands.dart';
 import 'events.dart';
+import 'services/credentials.dart';
 import 'services/db.dart';
 import 'services/reactions.dart';
 import 'services/scheduler.dart';
+import 'services/sentiment.dart';
 import 'services/tracker/tracker.dart';
 
 // Breakdown of intents:
@@ -67,7 +69,7 @@ class NeonBot {
   /// Connects to discord using the provided token [token]
   ///
   /// Also initializes any needed services
-  Future<void> connect(String token) async {
+  Future<void> connect() async {
     // Connect to our database
     DatabaseService.instance.init('local_db.db');
 
@@ -80,11 +82,14 @@ class NeonBot {
       ..addCommand(restart)
       ..onCommandError.listen(errorHandler);
 
+    // Get our discord token
+    var discordToken = await CredentialsService().getToken("discord");
+
     // Finally connect using our api token
-    client = await Nyxx.connectGateway(token, intents,
+    client = await Nyxx.connectGateway(discordToken, intents,
         options: GatewayClientOptions(plugins: [commands]));
     botUser = await client.users.fetchCurrentUser();
-    logger.info("Logged in as ${botUser.username}");
+    logger.info("Logged in as ${botUser.username} with user id $userId");
 
     // Set the neonbot status
     setPresence(online: true);
@@ -99,6 +104,7 @@ class NeonBot {
     MatchScheduler.init(client);
     TrackerApi.init();
     AutoreactService.init();
+    SentimentService.init();
 
     // Schedule core shutdown tasks:
     // - disable event bus
