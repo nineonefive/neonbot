@@ -174,17 +174,20 @@ class Reactions {
     SingleReaction("glaze", Emojis.glaze),
     SingleReaction("kev", Emojis.kev),
     SentimentReaction("neonbot", {
-      Sentiment.neutral:
-          RandomReaction("neutral", [Emojis.discord("💙"), Emojis.neonsweat]),
+      Sentiment.neutral: RandomReaction(
+          "neutral", [Emojis.neonsweat, Emojis.neonlurk, Emojis.neonisee]),
       Sentiment.negative: RandomReaction("negative", [
         Emojis.neonsad,
         Emojis.neonangry,
         Emojis.neonrage,
-        Emojis.neonthisisfine,
-        Emojis.oridead
+        Emojis.neonthisisfine
       ]),
-      Sentiment.positive: RandomReaction(
-          "positive", [Emojis.neonlove, Emojis.neonlove2, Emojis.oriheart])
+      Sentiment.positive: RandomReaction("positive", [
+        Emojis.neonlove,
+        Emojis.neonlove2,
+        Emojis.neonwow,
+        Emojis.discord("💙")
+      ])
     }),
   ];
 }

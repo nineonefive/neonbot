@@ -10,8 +10,17 @@ class Emojis {
   static final neonsquish =
       ReactionBuilder(name: "neonsquish", id: Snowflake(1041584725627781140));
 
+  static final neonwow =
+      ReactionBuilder(name: "neonwow", id: Snowflake(1140755513399848970));
+
   static final neonsweat =
       ReactionBuilder(name: "neonsweat", id: Snowflake(954830684080459817));
+
+  static final neonisee =
+      ReactionBuilder(name: "neonisee", id: Snowflake(1233576381326037102));
+
+  static final neonlurk =
+      ReactionBuilder(name: "neonlurk", id: Snowflake(1049438090751647745));
 
   static final neonlove =
       ReactionBuilder(name: "neonlove", id: Snowflake(954830472561692765));
