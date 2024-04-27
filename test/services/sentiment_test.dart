@@ -1,3 +1,5 @@
+@Skip("Github doesn't have api keys")
+
 import 'package:neonbot/src/services/sentiment.dart';
 import 'package:test/test.dart';
 
