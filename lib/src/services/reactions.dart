@@ -12,7 +12,7 @@ final milkTruckDiscord = Snowflake(1101930063819190425);
 
 class AutoreactService {
   static late final AutoreactService _instance;
-  static final splitPattern = RegExp(r"\s+");
+  static final splitPattern = RegExp(r"\W+");
 
   static void init() {
     _instance = AutoreactService._();
