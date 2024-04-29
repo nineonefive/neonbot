@@ -93,6 +93,7 @@ class NeonBot {
 
     // Set the neonbot status
     setPresence(online: true);
+    Timer.periodic(Duration(minutes: 5), (timer) => setPresence(online: true));
 
     // Connect events to the event bus
     _eventSubscriptions
