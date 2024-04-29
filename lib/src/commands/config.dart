@@ -4,8 +4,6 @@ import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
 
 import '../embeds.dart';
-import '../events.dart';
-import '../events/interaction_create.dart';
 import '../forms/config.dart';
 import '../services/guilds.dart';
 import '../services/tracker/exceptions.dart';
@@ -34,10 +32,10 @@ final _configEditCommand = ChatCommand(
         return;
       }
 
-      var form = await createConfigForm(guild.id);
-      var message = await context.respond(form);
-      eventBus.fire(InteractionComponentCreatedEvent(
-          'guild-preferences', message, context.guild!.id));
+      var formBuilder = await createConfigForm(guild.id);
+      var message = await context.respond(formBuilder);
+      var form = await ConfigFormHandler.create(context, message);
+      await form.complete();
     }));
 
 final _configTeam = ChatCommand(

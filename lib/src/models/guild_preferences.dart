@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:nyxx/nyxx.dart';
 
 import '../services/tracker/tracker.dart';
+import 'memento.dart';
 import 'premier_team.dart';
 import 'valorant_regions.dart';
 
 final logger = Logger("GuildPreferences");
 
-class GuildPreferences {
+class GuildPreferences implements Memento {
   final Snowflake guildId;
 
   PartialPremierTeam partialTeam;
@@ -54,6 +55,20 @@ class GuildPreferences {
       "voiceChannel": voiceChannel.value,
       "signupRole": signupRole.value
     };
+  }
+
+  @override
+  Map<String, dynamic> getMemento() {
+    return toJson();
+  }
+
+  @override
+  void updateFromMemento(dynamic memento) {
+    var other = GuildPreferences.fromJson(memento as Map<String, dynamic>);
+    announcementsChannel = other.announcementsChannel;
+    partialTeam = other.partialTeam;
+    signupRole = other.signupRole;
+    voiceChannel = other.voiceChannel;
   }
 
   static GuildPreferences fromJson(Map<String, dynamic> data) {

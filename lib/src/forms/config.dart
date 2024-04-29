@@ -1,7 +1,80 @@
 // Otherwise construct the configuration modal
 import 'package:nyxx/nyxx.dart';
+import 'package:nyxx_commands/nyxx_commands.dart';
 
+import '../embeds/config.dart';
+import '../models/guild_preferences.dart';
 import '../services/guilds.dart';
+import 'formhandler.dart';
+
+class ConfigFormHandler extends MessageFormHandler {
+  final GuildPreferences gp;
+  final dynamic memento;
+
+  ConfigFormHandler._(super.context, super.message, this.gp, this.memento);
+
+  static Future<ConfigFormHandler> create(
+      ChatContext context, Message message) async {
+    var gp = await GuildService().getPreferences(context.guild!.id);
+    var memento = gp.getMemento();
+
+    return ConfigFormHandler._(context, message, gp, memento);
+  }
+
+  @override
+  Future<bool> handle() async {
+    var interaction = lastInteraction!;
+    var data = int.parse(interaction.data.values?.firstOrNull ?? "0");
+
+    switch (interaction.data.customId) {
+      // When the user submits, we persist the changes and remove the form.
+      case "submit":
+        // Avoid 10062 error
+        await message.update(
+            MessageUpdateBuilder(content: ":hourglass:", components: []));
+        return true;
+
+      // When the user cancels, we should refresh the preferences from the database
+      case "cancel":
+        await message.update(MessageUpdateBuilder(
+            content: ":x: Cancelled by user", components: []));
+
+        gp.updateFromMemento(memento);
+        return true;
+
+      // If the user edits other settings, we simply acknowledge them
+      case "announcementChannel":
+        gp.announcementsChannel = Snowflake(data);
+        await interaction.acknowledge(updateMessage: true);
+        return false;
+      case "voiceChannel":
+        gp.voiceChannel = Snowflake(data);
+        await interaction.acknowledge(updateMessage: true);
+        return false;
+      case "signupRole":
+        gp.signupRole = Snowflake(data);
+        await interaction.acknowledge(updateMessage: true);
+        return false;
+    }
+
+    return false;
+  }
+
+  @override
+  Future<void> onDone() async {
+    // Save new preferences
+    await GuildService().savePreferences(gp);
+    await message.update(MessageUpdateBuilder(
+        content: "", embeds: [await gp.asEmbed], components: []));
+  }
+
+  @override
+  Future<void> onExpire() async {
+    // Restore guild settings
+    gp.updateFromMemento(memento);
+    await GuildService().savePreferences(gp);
+  }
+}
 
 Future<MessageBuilder> createConfigForm(Snowflake guildId) async {
   var gp = await GuildService().getPreferences(guildId);
