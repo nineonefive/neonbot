@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:isolate';
 
 import 'package:chaleno/chaleno.dart' show Parser, Chaleno;
 import 'package:logging/logging.dart';
+import 'package:puppeteer/puppeteer.dart';
 
 import '../../cache.dart';
 import '../../models/match_schedule.dart';
@@ -220,9 +220,20 @@ class TrackerWorker {
 
   static Future<Map<String, dynamic>> parseTrackerPage(Uri url) async {
     Parser parser;
-    if (NeonBot.useSelenium) {
-      var result = await Process.run("python", ["tracker.py", url.toString()]);
-      parser = Parser(result.stdout);
+    if (NeonBot.cloudflareMode) {
+      var browser = await puppeteer.launch();
+      var page = await browser.newPage();
+      await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36");
+
+      await page.goto(url.toString(), wait: Until.networkIdle);
+
+      // Wait for tracker logo
+      await page.waitForSelector(".trn-game-bar-company",
+          timeout: Duration(seconds: 10));
+      var result = await page.content;
+      await browser.close();
+      parser = Parser(result);
     } else {
       parser = (await Chaleno().load(url.toString()))!;
     }

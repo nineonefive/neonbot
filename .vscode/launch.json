@@ -9,6 +9,10 @@
             "program": "bin/neonbot.dart",
             "request": "launch",
             "type": "dart",
+            "args": [
+                "--debug",
+                "--cloudflare"
+            ]
         }
     ]
 }

@@ -36,7 +36,7 @@ class NeonBot {
 
   factory NeonBot() => _instance;
 
-  static bool useSelenium = false;
+  static bool cloudflareMode = false;
   static Level _logLevel = Level.INFO;
   static Level get logLevel => _logLevel;
   static set logLevel(Level level) {

@@ -36,7 +36,7 @@ void main(List<String> arguments) async {
 
     if (results.wasParsed("cloudflare")) {
       print("Using cloudflare mode");
-      NeonBot.useSelenium = true;
+      NeonBot.cloudflareMode = true;
     }
 
     // Connect the bot to discord

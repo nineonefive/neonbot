@@ -73,9 +73,9 @@ class MatchSchedule {
       matches.where((m) => m.startTime.isAfter(DateTime.now()));
 
   Iterable<Match> get thisWeek {
-    var nextTuesday = DateTime.now()
-        .subtract(Duration(days: DateTime.now().weekday - 1))
-        .add(Duration(days: 8));
+    var now = DateTime.now();
+    var nextTuesday =
+        now.subtract(Duration(days: now.weekday - 1)).add(Duration(days: 8));
     return upcomingMatches.where((m) => m.startTime.isBefore(nextTuesday));
   }
 
