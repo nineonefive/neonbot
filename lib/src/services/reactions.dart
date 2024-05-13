@@ -147,9 +147,19 @@ class SentimentReaction extends Reaction {
   @override
   Future<void> react(Message message) async {
     try {
-      var sentiment = await SentimentService().getSentiment(message.content);
-      var reaction = reactions[sentiment];
-      await reaction?.react(message);
+      var attempts = 0;
+      while (attempts < 2) {
+        attempts++;
+        var sentiment = await SentimentService().getSentiment(message.content);
+        var reaction = reactions[sentiment];
+
+        // This handles the case where hugging face is cold starting
+        // and therefore would be up on a second call to this method
+        if (reaction != null) {
+          await reaction.react(message);
+          return;
+        }
+      }
     } catch (e, stacktrace) {
       logger.warning("Error in react(): $e, $stacktrace");
     }
