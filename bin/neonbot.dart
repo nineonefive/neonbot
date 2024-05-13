@@ -1,6 +1,7 @@
 import 'package:args/args.dart';
 import 'package:logging/logging.dart';
 import 'package:neonbot/src/neonbot.dart';
+import 'package:neonbot/src/services/tracker/tracker.dart';
 
 const String version = '0.0.2';
 
@@ -36,7 +37,7 @@ void main(List<String> arguments) async {
 
     if (results.wasParsed("cloudflare")) {
       print("Using cloudflare mode");
-      NeonBot.cloudflareMode = true;
+      TrackerApi.cloudflareMode = true;
     }
 
     // Connect the bot to discord

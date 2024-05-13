@@ -24,27 +24,29 @@ class GuildPreferences implements Memento {
   Snowflake signupRole;
   bool get hasSignupRole => signupRole != Snowflake.zero;
 
+  Region premierRegion;
+  bool get hasPremierRegion => premierRegion != Region.none;
+
   GuildPreferences(
     this.guildId, {
     this.partialTeam = PartialPremierTeam.none,
     this.announcementsChannel = Snowflake.zero,
     this.voiceChannel = Snowflake.zero,
     this.signupRole = Snowflake.zero,
+    this.premierRegion = Region.none,
   });
 
   /// Retrieves the premier team for this guild, throwing an error if one is not set
   Future<PremierTeam> get premierTeam async {
-    return hasPremierTeam
-        ? await TrackerApi().getTeam(partialTeam.id)
-        : throw Exception("Calling get premierTeam on a guild without one set");
-  }
+    if (!hasPremierTeam) {
+      throw Exception("Calling get premierTeam on a guild without one set");
+    }
 
-  /// Retrieves the zone for this guild
-  /// Todo: Store zone in guild preferences directly
-  Future<Region> get region async {
-    if (!hasPremierTeam) return Region.usEast;
-    var team = await premierTeam;
-    return team.region;
+    var team = await TrackerApi().getTeam(partialTeam.id);
+
+    // Forcefully sync region to match team
+    premierRegion = team.region;
+    return team;
   }
 
   Map<String, dynamic> toJson() {
@@ -53,7 +55,8 @@ class GuildPreferences implements Memento {
       "premierTeam": partialTeam.toJson(),
       "announcementsChannel": announcementsChannel.value,
       "voiceChannel": voiceChannel.value,
-      "signupRole": signupRole.value
+      "signupRole": signupRole.value,
+      "premierRegion": premierRegion.toJson(),
     };
   }
 
@@ -69,15 +72,19 @@ class GuildPreferences implements Memento {
     partialTeam = other.partialTeam;
     signupRole = other.signupRole;
     voiceChannel = other.voiceChannel;
+    premierRegion = other.premierRegion;
   }
 
   static GuildPreferences fromJson(Map<String, dynamic> data) {
     return GuildPreferences(
       Snowflake(data["guildId"]),
-      partialTeam: PartialPremierTeam.fromJson(data["premierTeam"]),
+      partialTeam: PartialPremierTeam.fromJson(
+          data["premierTeam"] ?? PartialPremierTeam.none.toJson()),
       announcementsChannel: Snowflake(data["announcementsChannel"] ?? 0),
       voiceChannel: Snowflake(data["voiceChannel"] ?? 0),
       signupRole: Snowflake(data["signupRole"] ?? 0),
+      premierRegion:
+          Region.fromJson(data["premierRegion"] ?? Region.none.toJson()),
     );
   }
 

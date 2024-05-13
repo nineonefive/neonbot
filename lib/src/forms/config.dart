@@ -1,9 +1,9 @@
-// Otherwise construct the configuration modal
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
 
 import '../embeds/config.dart';
 import '../models/guild_preferences.dart';
+import '../models/valorant_regions.dart';
 import '../services/guilds.dart';
 import 'formhandler.dart';
 
@@ -24,7 +24,10 @@ class ConfigFormHandler extends MessageFormHandler {
   @override
   Future<bool> handle() async {
     var interaction = lastInteraction!;
-    var data = int.parse(interaction.data.values?.firstOrNull ?? "0");
+    var snowflakeData = Snowflake(
+        int.tryParse(interaction.data.values?.firstOrNull ?? "0") ?? 0);
+    var premierRegionData =
+        Region.fromId(interaction.data.values?.firstOrNull ?? "");
 
     switch (interaction.data.customId) {
       // When the user submits, we persist the changes and remove the form.
@@ -44,15 +47,19 @@ class ConfigFormHandler extends MessageFormHandler {
 
       // If the user edits other settings, we simply acknowledge them
       case "announcementChannel":
-        gp.announcementsChannel = Snowflake(data);
+        gp.announcementsChannel = snowflakeData;
         await interaction.acknowledge(updateMessage: true);
         return false;
       case "voiceChannel":
-        gp.voiceChannel = Snowflake(data);
+        gp.voiceChannel = snowflakeData;
         await interaction.acknowledge(updateMessage: true);
         return false;
       case "signupRole":
-        gp.signupRole = Snowflake(data);
+        gp.signupRole = snowflakeData;
+        await interaction.acknowledge(updateMessage: true);
+        return false;
+      case "premierRegion":
+        gp.premierRegion = premierRegionData;
         await interaction.acknowledge(updateMessage: true);
         return false;
     }
@@ -112,6 +119,19 @@ Future<MessageBuilder> createConfigForm(Snowflake guildId) async {
               gp.hasSignupRole ? [DefaultValue.role(id: gp.signupRole)] : null)
     ]),
     ActionRowBuilder(components: [
+      SelectMenuBuilder.stringSelect(
+          customId: "premierRegion",
+          placeholder: "Premier region",
+          minValues: 1,
+          maxValues: 1,
+          options: Region.values.where((r) => r != Region.none).map((r) {
+            return SelectMenuOptionBuilder(
+              label: r.name,
+              value: r.id,
+            );
+          }).toList())
+    ]),
+    ActionRowBuilder(components: [
       ButtonBuilder(
         customId: "submit",
         style: ButtonStyle.primary,
@@ -131,6 +151,7 @@ Future<MessageBuilder> createConfigForm(Snowflake guildId) async {
         "- **Announcements channel**: New schedule notifications will be posted here",
         "- **Voice channel**: Events will be hosted in this voice channel",
         "- **Signup role**: Members with this role will be counted towards event signups",
+        "- **Premier region**: Region where the premier team is based"
       ].join("\n");
 
   var messageBuilder = MessageBuilder(content: content, components: components);

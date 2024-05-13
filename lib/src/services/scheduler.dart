@@ -89,7 +89,7 @@ class MatchScheduler {
 
       // Schedule new matches from the premier schedule, skipping if we recently
       // updated for this guild
-      if (!gp.hasPremierTeam || age < scheduleMatchesInterval) continue;
+      if (!gp.hasPremierRegion || age < scheduleMatchesInterval) continue;
 
       var newEvents = await scheduleNewMatches(guild);
       _lastUpdated[guild.id] = DateTime.now();
@@ -120,7 +120,7 @@ class MatchScheduler {
     var gp = await GuildService().getPreferences(guild.id);
 
     // Skip guilds that don't have a team set
-    if (!gp.hasPremierTeam || !gp.hasVoiceChannel) return [];
+    if (!gp.hasPremierRegion || !gp.hasVoiceChannel) return [];
 
     // Check the upcoming discord events in the guild
     var upcomingEvents = (await guild.scheduledEvents.list())
@@ -131,7 +131,7 @@ class MatchScheduler {
     if (upcomingEvents.isNotEmpty) return [];
 
     // Get the upcoming premier schedule for this week
-    var matches = (await TrackerApi().getSchedule(await gp.region)).thisWeek;
+    var matches = (await TrackerApi().getSchedule(gp.premierRegion)).thisWeek;
 
     Set<ScheduledEvent> newEvents = {};
 

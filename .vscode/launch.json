@@ -10,8 +10,8 @@
             "request": "launch",
             "type": "dart",
             "args": [
-                "--debug",
-                "--cloudflare"
+                // "--debug",
+                // "--cloudflare"
             ]
         }
     ]

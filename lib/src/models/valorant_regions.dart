@@ -4,6 +4,7 @@ import 'package:timezone/timezone.dart' as tz;
 ///
 /// See https://valorant.fandom.com/wiki/Premier#Zones
 enum Region {
+  none("", "", ""),
   // Americas
   usEast(
     "NA_US_EAST",
@@ -114,16 +115,16 @@ enum Region {
   }
 
   static Region fromJson(Map<String, dynamic> json) {
-    return fromId(json['id'])!;
+    return fromId(json['id'] ?? "");
   }
 
   /// Returns the region for [id]
-  static Region? fromId(String id) {
+  static Region fromId(String id) {
     for (var region in values) {
       if (region.id == id) {
         return region;
       }
     }
-    return null;
+    return Region.none;
   }
 }

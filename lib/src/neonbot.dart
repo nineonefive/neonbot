@@ -16,6 +16,7 @@ import 'services/reactions.dart';
 import 'services/scheduler.dart';
 import 'services/sentiment.dart';
 import 'services/tracker/tracker.dart';
+import 'services/http.dart';
 
 // Breakdown of intents:
 // - guildMessageReactions: Needed for auto react or possibly signup mechanisms
@@ -36,7 +37,6 @@ class NeonBot {
 
   factory NeonBot() => _instance;
 
-  static bool cloudflareMode = false;
   static Level _logLevel = Level.INFO;
   static Level get logLevel => _logLevel;
   static set logLevel(Level level) {
@@ -106,6 +106,7 @@ class NeonBot {
     TrackerApi.init();
     AutoreactService.init();
     SentimentService.init();
+    HttpServer.init();
 
     // Schedule core shutdown tasks:
     // - disable event bus

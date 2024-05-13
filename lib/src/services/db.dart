@@ -16,8 +16,9 @@ class Field {
 class Table {
   final String name;
   final Map<String, Field> fields;
+  final String constraint;
 
-  const Table(this.name, this.fields);
+  const Table(this.name, this.fields, {this.constraint = ""});
 
   String get create {
     List<String> columns = [];
@@ -25,6 +26,11 @@ class Table {
       columns.add('${entry.key} ${entry.value.type}');
     }
     var columnString = columns.join(', ');
+
+    if (constraint.isNotEmpty) {
+      columnString = '$columnString, $constraint';
+    }
+
     var baseQuery = 'CREATE TABLE IF NOT EXISTS $name ($columnString)';
 
     return baseQuery;
@@ -37,6 +43,16 @@ class Tables {
     "guildId": Field.integer.notNull.unique,
     "preferences": Field.text.notNull
   });
+
+  static final premierSchedule = Table(
+      "premier_schedule",
+      {
+        "id": Field.integer.asPrimary,
+        "region": Field.text.notNull,
+        "startTime": Field.integer.notNull,
+        "data": Field.text.notNull
+      },
+      constraint: "UNIQUE(region, startTime)");
 }
 
 class DatabaseService {
@@ -51,6 +67,7 @@ class DatabaseService {
     _db = sqlite3.open(databasePath);
 
     createTable(Tables.guildPreferences);
+    createTable(Tables.premierSchedule);
   }
 
   /// Creates the table defined by [schema]

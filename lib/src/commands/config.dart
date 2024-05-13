@@ -53,9 +53,15 @@ final _configTeam = ChatCommand(
 
         message = "Server premier team set to `${partialTeam.name}`";
 
-        // Sync to database and pull the team details into tracker service
+        // Sync to database and pull the team details into tracker service. We'll
+        // also match the region.
         Future(() async {
-          await GuildService().savePreferences(preferences);
+          try {
+            var team = await preferences.premierTeam;
+            preferences.premierRegion = team.region;
+          } finally {
+            await GuildService().savePreferences(preferences);
+          }
         });
       } catch (error) {
         message = switch (error) {

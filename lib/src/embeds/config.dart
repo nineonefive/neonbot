@@ -10,6 +10,7 @@ extension GuildPreferencesEmbeddable on GuildPreferences {
     String announcementsChannel =
         this.announcementsChannel.channelMention ?? "None";
     String teamName = hasPremierTeam ? partialTeam.name : "None";
+    String regionName = hasPremierRegion ? premierRegion.name : "None";
     String roleName = signupRole.roleMention ?? "None";
 
     return EmbedBuilder(
@@ -19,6 +20,7 @@ extension GuildPreferencesEmbeddable on GuildPreferences {
         "**Voice channel**: $voiceChannel",
         "**Signup role**: $roleName",
         "**Premier team**: $teamName",
+        "**Premier region**: $regionName"
       ].join("\n"),
       color: Colors.primary,
       footer: botFooter,

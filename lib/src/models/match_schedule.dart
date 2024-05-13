@@ -58,6 +58,16 @@ class Match {
       return "Match(${map.name} ${matchType.name} @ $startTime)";
     }
   }
+
+  @override
+  int get hashCode => matchType.hashCode ^ startTime.hashCode ^ map.hashCode;
+
+  @override
+  bool operator ==(covariant Match other) {
+    return matchType == other.matchType &&
+        startTime == other.startTime &&
+        map == other.map;
+  }
 }
 
 class MatchSchedule {
@@ -68,6 +78,9 @@ class MatchSchedule {
     matches.sort((a, b) => a.startTime.compareTo(b.startTime));
     lastUpdated = DateTime.now();
   }
+
+  bool get isEmpty => matches.isEmpty;
+  bool get isNotEmpty => !isEmpty;
 
   Iterable<Match> get upcomingMatches =>
       matches.where((m) => m.startTime.isAfter(DateTime.now()));
