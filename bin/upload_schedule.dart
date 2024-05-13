@@ -1,18 +1,11 @@
 import 'dart:convert';
 
-import 'package:args/args.dart';
 import 'package:http/http.dart' as http;
 import 'package:neonbot/src/models/valorant_regions.dart';
 import 'package:neonbot/src/services/tracker/tracker.dart';
 
-ArgParser buildParser() {
-  return ArgParser()..addOption("ip", help: "ip address");
-}
-
 void main(List<String> arguments) async {
-  final argParser = buildParser();
-  final results = argParser.parse(arguments);
-  final ip = results.option("ip") ?? "0.0.0.0";
+  final ip = arguments.first;
 
   // Start tracker service to download the schedule
   TrackerApi.init();
