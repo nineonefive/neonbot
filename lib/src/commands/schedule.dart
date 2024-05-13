@@ -12,14 +12,14 @@ final schedule = ChatCommand(
       var message =
           await context.respond(MessageBuilder(content: ":hourglass:"));
       var gp = await GuildService().getPreferences(context.guild!.id);
-      if (!gp.hasPremierTeam) {
-        message.edit(MessageUpdateBuilder(content: ":x: No team set"));
+      if (!gp.hasPremierRegion) {
+        message
+            .edit(MessageUpdateBuilder(content: ":x: No region or team set"));
         return;
       }
 
-      var team = await gp.premierTeam;
-      var schedule = await TrackerApi().getSchedule(team.region);
+      var schedule = await TrackerApi().getSchedule(gp.premierRegion);
 
       await message.edit(MessageUpdateBuilder(
-          content: "", embeds: [schedule.asEmbed(team.region)]));
+          content: "", embeds: [schedule.asEmbed(gp.premierRegion)]));
     }));
