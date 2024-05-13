@@ -4,6 +4,7 @@ import 'dart:isolate';
 
 import 'package:chaleno/chaleno.dart' show Parser, Chaleno;
 import 'package:logging/logging.dart';
+import 'package:puppeteer/plugins/stealth.dart';
 import 'package:puppeteer/puppeteer.dart';
 
 import '../../cache.dart';
@@ -221,7 +222,7 @@ class TrackerWorker {
   static Future<Map<String, dynamic>> parseTrackerPage(Uri url) async {
     Parser parser;
     if (NeonBot.cloudflareMode) {
-      var browser = await puppeteer.launch();
+      var browser = await puppeteer.launch(plugins: [StealthPlugin()]);
       var page = await browser.newPage();
       await page.setUserAgent(
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36");
