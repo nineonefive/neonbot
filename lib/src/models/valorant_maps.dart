@@ -5,6 +5,7 @@ import '../services/valorantapi.dart';
 import '../util.dart' as util;
 
 enum ValorantMap {
+  abyss("Abyss", ":hourglass:"),
   ascent("Ascent", ":wind_blowing_face:"),
   bind("Bind", ":desert:"),
   breeze("Breeze", ":island:"),
