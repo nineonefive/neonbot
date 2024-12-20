@@ -183,6 +183,7 @@ class Reactions {
     SingleReaction("bloom", Emojis.discord("🪷")),
     SingleReaction("glaze", Emojis.glaze),
     SingleReaction("kev", Emojis.kev),
+    SingleReaction("chris", Emojis.discord("🦒")),
     SentimentReaction("neonbot", {
       Sentiment.neutral: RandomReaction(
           "neutral", [Emojis.neonsweat, Emojis.neonlurk, Emojis.neonisee]),
