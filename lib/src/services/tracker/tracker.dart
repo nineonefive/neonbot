@@ -18,7 +18,7 @@ class TrackerApi {
   static const teamCacheSize = 100;
   static const scheduleCacheTTL = Duration(days: 1);
   static const scheduleCacheSize = 25;
-  static final riotIdPattern = RegExp(r'^[\w ]+#\w{4,6}$', unicode: true);
+  static final riotIdPattern = RegExp(r'^[\w ]+#\w{3,6}$', unicode: true);
   static bool cloudflareMode = false;
 
   static late final TrackerApi _instance;
