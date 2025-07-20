@@ -9,7 +9,7 @@ enum ValorantMap {
   ascent("Ascent", ":wind_blowing_face:"),
   bind("Bind", ":desert:"),
   breeze("Breeze", ":island:"),
-  corrode("Corrode", ”:tornado:”),
+  corrode("Corrode", ":tornado:"),
   fracture("Fracture", ":radioactive:"),
   haven("Haven", ":japanese_castle:"),
   icebox("Icebox", ":snowflake:"),
