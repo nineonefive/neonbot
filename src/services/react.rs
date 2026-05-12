@@ -97,6 +97,7 @@ impl EventHandler for AutoReact {
 }
 
 #[cfg(feature = "milk-truck")]
+#[derive(Debug, PartialEq)]
 enum Sentiment {
     Positive,
     Negative,
@@ -117,9 +118,9 @@ impl Sentiment {
 
     fn from_str(label: &str) -> anyhow::Result<Self> {
         match label {
-            "positive" => Ok(Self::Positive),
-            "negative" => Ok(Self::Negative),
-            "neutral" => Ok(Self::Neutral),
+            "LABEL_0" => Ok(Self::Negative),
+            "LABEL_1" => Ok(Self::Neutral),
+            "LABEL_2" => Ok(Self::Positive),
             _ => Err(anyhow::anyhow!("Invalid label: {}", label)),
         }
     }
@@ -195,7 +196,7 @@ impl AutoReact {
 
         let mut retries = max_retries.unwrap_or(3);
         let hf_token = hf_token.unwrap();
-        let url = Url::from_str("https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment-latest").unwrap();
+        let url = Url::from_str("https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment").unwrap();
         let client = reqwest::Client::new();
         let request = client
             .post(url.clone())
@@ -238,5 +239,39 @@ impl AutoReact {
         }
 
         Err(anyhow!("Exceeded max retries"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(feature = "milk-truck")]
+    #[test]
+    fn test_vader_sentiment() {
+        let sentiment = AutoReact::get_sentiment_vader("you suck, neonbot");
+        assert_eq!(sentiment, Sentiment::Negative);
+    }
+
+    #[cfg(feature = "milk-truck")]
+    #[tokio::test]
+    async fn test_hf_sentiment() {
+        dotenv::dotenv().ok();
+        let result = AutoReact::get_sentiment_hf("you suck, neonbot", None).await;
+        if let Err(why) = result {
+            panic!("Failed to get sentiment from hugging face: {}", why);
+        }
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Sentiment::Negative);
+    }
+
+    #[cfg(feature = "milk-truck")]
+    #[tokio::test]
+    async fn test_sentiment_fallback() {
+        dotenv::dotenv().ok();
+        let auto_react = AutoReact::new();
+        let result = auto_react.get_sentiment("you suck, neonbot", None).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Sentiment::Negative);
     }
 }
