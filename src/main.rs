@@ -3,21 +3,25 @@ use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
 
 use crate::services::AutoReact;
+use crate::services::GuildService;
 
+mod db;
 pub mod emojis;
-mod guild_preferences;
 mod premier;
 mod services;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     // Optional: load environment variables from .env file
-    dotenv::dotenv().ok();
+    dotenvy::dotenv().ok();
 
+    // Set up logging
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn,neonbot=info"));
-
     tracing_subscriber::fmt().with_env_filter(filter).init();
+
+    // Start up the database
+    let db = db::get_db().await.unwrap();
 
     // Obtain token and start serenity
     let token =
@@ -40,6 +44,7 @@ async fn main() {
     debug!("Initializing client");
     let mut client = Client::builder(&token, intents)
         .event_handler(AutoReact::new())
+        .event_handler(GuildService::new(db.clone()))
         .await
         .expect("Failed to create client");
 

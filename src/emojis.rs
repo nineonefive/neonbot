@@ -1,6 +1,6 @@
 use serenity::model::channel::ReactionType;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Emoji {
     NeonSquish,
     NeonWow,

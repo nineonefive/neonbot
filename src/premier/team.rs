@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::premier::Region;
 
 /// Represents a partial team not fully downloaded from tracker
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PartialTeam {
     /// Unique identifier for the team
     uuid: Uuid,

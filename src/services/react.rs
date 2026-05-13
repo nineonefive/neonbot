@@ -246,6 +246,19 @@ impl AutoReact {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_keyword_reactions() {
+        let auto_react = AutoReact::new();
+        let emotes = auto_react.find_keyword_reactions("hi glaze, how are you");
+        assert_eq!(emotes, vec![Emoji::Glaze]);
+
+        let emotes = auto_react.find_keyword_reactions("swit, 91 5 said hi");
+        assert_eq!(emotes, vec![Emoji::SageLove]);
+
+        let emotes = auto_react.find_keyword_reactions("swit, 915 said hi");
+        assert_eq!(emotes, vec![Emoji::SageLove, Emoji::NeonSquish]);
+    }
+
     #[cfg(feature = "milk-truck")]
     #[test]
     fn test_vader_sentiment() {
@@ -256,7 +269,7 @@ mod tests {
     #[cfg(feature = "milk-truck")]
     #[tokio::test]
     async fn test_hf_sentiment() {
-        dotenv::dotenv().ok();
+        dotenvy::dotenv().ok();
         let result = AutoReact::get_sentiment_hf("you suck, neonbot", None).await;
         if let Err(why) = result {
             panic!("Failed to get sentiment from hugging face: {}", why);
@@ -268,7 +281,7 @@ mod tests {
     #[cfg(feature = "milk-truck")]
     #[tokio::test]
     async fn test_sentiment_fallback() {
-        dotenv::dotenv().ok();
+        dotenvy::dotenv().ok();
         let auto_react = AutoReact::new();
         let result = auto_react.get_sentiment("you suck, neonbot", None).await;
         assert!(result.is_ok());
