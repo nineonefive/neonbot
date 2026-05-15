@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -9,13 +8,13 @@ use crate::premier::Region;
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct PartialTeam {
     /// Unique identifier for the team
-    uuid: Uuid,
+    pub uuid: Uuid,
 
     /// Player-chosen Riot ID for the team, e.g. "Milk Truck#MILK"
-    riot_id: String,
+    pub riot_id: String,
 
     /// The premier region the team competes in
-    region: Region,
+    pub region: Region,
 }
 
 impl PartialTeam {
@@ -26,51 +25,30 @@ impl PartialTeam {
             region,
         }
     }
-
-    pub fn uuid(&self) -> &Uuid {
-        &self.uuid
-    }
-
-    pub fn riot_id(&self) -> &str {
-        &self.riot_id
-    }
-
-    pub fn region(&self) -> Region {
-        self.region
-    }
 }
 
 #[derive(Clone)]
 pub struct Team {
-    inner_team: PartialTeam,
-    image_url: Url,
-    stats: TeamStats,
-    last_updated: DateTime<Utc>,
+    pub uuid: Uuid,
+    pub riot_id: String,
+    pub region: Region,
+    pub image_url: Url,
 }
 
 impl Team {
-    pub fn new(
-        inner_team: PartialTeam,
-        image_url: Url,
-        stats: TeamStats,
-        last_updated: DateTime<Utc>,
-    ) -> Self {
+    pub fn from_partial_team(team: PartialTeam, image_url: Url) -> Self {
         Self {
-            inner_team,
+            uuid: team.uuid,
+            riot_id: team.riot_id,
+            region: team.region,
             image_url,
-            stats,
-            last_updated,
         }
     }
+}
 
-    pub fn update_image_url(&mut self, image_url: Url) {
-        self.image_url = image_url;
-        self.last_updated = Utc::now();
-    }
-
-    pub fn update_stats(&mut self, stats: TeamStats) {
-        self.stats = stats;
-        self.last_updated = Utc::now();
+impl From<Team> for PartialTeam {
+    fn from(team: Team) -> Self {
+        Self::new(team.uuid, team.riot_id, team.region)
     }
 }
 

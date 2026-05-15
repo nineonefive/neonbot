@@ -5,10 +5,12 @@ use tracing_subscriber::EnvFilter;
 use crate::services::AutoReact;
 use crate::services::GuildService;
 
+mod api;
 mod db;
 pub mod emojis;
 mod premier;
 mod services;
+mod util;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
