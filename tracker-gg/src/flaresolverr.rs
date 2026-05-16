@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
-use reqwest::Url;
+use wreq::Url;
 
 #[derive(serde::Deserialize)]
 pub struct FlareSolverrResponse {

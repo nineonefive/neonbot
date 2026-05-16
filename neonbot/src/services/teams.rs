@@ -1,19 +1,19 @@
 use anyhow::Result;
 use moka::future::{Cache, CacheBuilder};
-use reqwest::{StatusCode, Url};
 use std::time::Duration;
 use uuid::Uuid;
+use wreq::{StatusCode, Url};
 
 use crate::{premier::Team, util::parse_premier_data};
 
 #[derive(Clone)]
 struct TeamService {
-    client: reqwest::Client,
+    client: wreq::Client,
     team_cache: Cache<Uuid, Team>,
 }
 
 impl TeamService {
-    pub fn new(client: reqwest::Client) -> Self {
+    pub fn new(client: wreq::Client) -> Self {
         Self {
             client,
             team_cache: CacheBuilder::new(100)

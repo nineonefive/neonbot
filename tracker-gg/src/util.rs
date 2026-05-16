@@ -1,9 +1,9 @@
 use anyhow::{Result, anyhow};
-use reqwest::{StatusCode, Url};
 use scraper::{Html, Selector};
 use serde_json::Value;
+use wreq::{StatusCode, Url};
 
-use crate::util::flaresolverr::get_with_flaresolverr;
+use crate::flaresolverr::get_with_flaresolverr;
 
 pub(super) async fn get(
     client: &wreq::Client,

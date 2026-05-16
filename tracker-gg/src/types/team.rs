@@ -1,8 +1,8 @@
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use wreq::Url;
 
-use crate::premier::Region;
+use crate::Region;
 
 /// Represents a partial team not fully downloaded from tracker
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]

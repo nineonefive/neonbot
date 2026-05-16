@@ -186,7 +186,7 @@ impl AutoReact {
         use anyhow::anyhow;
         use std::str::FromStr;
 
-        use reqwest::Url;
+        use wreq::Url;
 
         let hf_token = std::env::var("HF_TOKEN");
 
@@ -197,7 +197,7 @@ impl AutoReact {
         let mut retries = max_retries.unwrap_or(3);
         let hf_token = hf_token.unwrap();
         let url = Url::from_str("https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment").unwrap();
-        let client = reqwest::Client::new();
+        let client = wreq::Client::new();
         let request = client
             .post(url.clone())
             .bearer_auth(hf_token.as_str())
@@ -212,7 +212,7 @@ impl AutoReact {
                 .await?;
 
             if !response.status().is_success() {
-                use reqwest::StatusCode;
+                use wreq::StatusCode;
 
                 // Retrying won't make it magically appear
                 if response.status() == StatusCode::NOT_FOUND {

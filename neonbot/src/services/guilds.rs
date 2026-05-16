@@ -15,7 +15,7 @@ use serenity::{
 use sqlx::{Row, SqlitePool};
 use tracing::{error, info};
 
-use crate::premier::PartialTeam;
+use tracker_gg::PartialTeam;
 
 /// The preferences for a guild
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

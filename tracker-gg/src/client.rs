@@ -1,18 +1,16 @@
+use crate::{Team, types::raw::*};
 use anyhow::Result;
-use chrono::{DateTime, Utc};
-use reqwest::Url;
 use serde::Deserialize;
-use serde_json::Value;
 use uuid::Uuid;
+use wreq::Url;
 
-use super::util::parse_premier_data;
-use crate::premier::{Region, Team};
+use crate::util::parse_premier_data;
 
 #[derive(Clone)]
 pub struct TrackerClient {
-    pub client: wreq::Client,
-    pub max_retries: Option<usize>,
-    pub use_flaresolverr: bool,
+    client: wreq::Client,
+    max_retries: Option<usize>,
+    use_flaresolverr: bool,
 }
 
 impl TrackerClient {
@@ -45,7 +43,7 @@ impl TrackerClient {
         .await?;
         let resp: SearchByNameResponse = serde_json::from_str(&raw)?;
         let resp = resp.data;
-        if let Some(result_set) = resp.resultSets.first()
+        if let Some(result_set) = resp.result_sets.first()
             && result_set._type == "premier-team"
         {
             if result_set.results.is_empty() {
@@ -80,118 +78,12 @@ impl TrackerClient {
     }
 }
 
-#[derive(Deserialize)]
-struct TeamByUUIDResponse {
-    #[serde(rename = "detailedRoster")]
-    pub detailed_roster: DetailedRoster,
-}
-
-#[derive(Deserialize)]
-struct DetailedRoster {
-    #[serde(rename = "createdDate")]
-    created_date: DateTime<Utc>,
-    division: usize,
-    #[serde(rename = "divisionImageUrl")]
-    division_image_url: Url,
-    icon: Icon,
-    id: Option<Uuid>,
-    #[serde(rename = "isDeleted")]
-    is_deleted: bool,
-    #[serde(rename = "leagueScore")]
-    league_score: Option<usize>,
-    losses: usize,
-    name: String,
-    rank: Option<usize>,
-    wins: usize,
-    /// Zone identifier like NA_US_EAST
-    zone: String,
-    /// Friendly zone name like US East
-    #[serde(rename = "zoneName")]
-    zone_name: String,
-}
-
-#[derive(Deserialize)]
-struct Icon {
-    #[serde(rename = "imageUrl")]
-    image_url: Url,
-    // Other fields don't matter
-}
-
-impl TryFrom<TeamByUUIDResponse> for Team {
-    type Error = anyhow::Error;
-
-    fn try_from(resp: TeamByUUIDResponse) -> Result<Self, Self::Error> {
-        let roster = resp.detailed_roster;
-        if roster.id.is_none() {
-            return Err(anyhow::anyhow!("Team ID is missing"));
-        }
-
-        let uuid = roster.id.unwrap();
-        let region = Region::from_riot_id(&roster.zone);
-        if region.is_none() {
-            return Err(anyhow::anyhow!("Invalid region idenifier: {}", roster.zone));
-        }
-
-        Ok(Self {
-            uuid,
-            riot_id: roster.name,
-            region: region.unwrap(),
-            image_url: roster.icon.image_url,
-        })
-    }
-}
-
-#[derive(Deserialize)]
-struct SearchByNameResponse {
-    data: ResultSets,
-}
-
-#[derive(Deserialize)]
-struct ResultSets {
-    resultSets: Vec<ResultSet>,
-}
-
-#[derive(Deserialize)]
-struct ResultSet {
-    #[serde(rename = "type")]
-    _type: String,
-    results: Vec<Value>,
-}
-
-#[derive(Deserialize)]
-struct TeamResult {
-    id: Uuid,
-    name: String,
-    status: String,
-    #[serde(rename = "imageUrl")]
-    image_url: Url,
-    metadata: Metadata,
-}
-
-#[derive(Deserialize)]
-struct Metadata {
-    zone: String,
-}
-
-impl TryFrom<TeamResult> for Team {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TeamResult) -> Result<Self, Self::Error> {
-        Ok(Self {
-            uuid: value.id,
-            riot_id: value.name,
-            region: Region::from_riot_id(&value.metadata.zone).ok_or_else(|| {
-                anyhow::anyhow!("No region found for code {}", &value.metadata.zone)
-            })?,
-            image_url: value.image_url,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
     use wreq_util::Emulation;
+
+    use crate::Region;
 
     use super::*;
 
