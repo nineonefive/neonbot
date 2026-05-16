@@ -1,0 +1,23 @@
+[package]
+name = "valorant-api"
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+anyhow = "1.0.102"
+openapiv3 = "2.2.0"
+prettyplease = "0.2.37"
+progenitor = "0.14.0"
+serde = "1.0.228"
+serde_json = "1.0.149"
+syn = "2.0.117"
+tokio = { version = "1.52.3", features = ["macros"] }
+wreq = { version = "5.3.0", features = ["json"] }
+
+[dependencies]
+chrono = { version = "0.4.44", features = ["serde"] }
+progenitor-client = "0.14.0"
+reqwest = "0.13.3"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+uuid = { version = "1.23.1", features = ["serde"] }
