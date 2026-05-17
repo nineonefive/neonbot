@@ -8,6 +8,7 @@ use crate::services::GuildService;
 mod db;
 pub mod emojis;
 mod services;
+mod types;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {

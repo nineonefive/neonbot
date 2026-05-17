@@ -15,7 +15,7 @@ use serenity::{
 use sqlx::{Row, SqlitePool};
 use tracing::{error, info};
 
-use tracker_gg::PartialTeam;
+use crate::types::PartialPremierTeam;
 
 /// The preferences for a guild
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -33,7 +33,7 @@ pub struct GuildPreferences {
     pub signup_role: Option<RoleId>,
 
     /// The premier team this guild is associated with
-    pub premier_team: Option<PartialTeam>,
+    pub premier_team: Option<PartialPremierTeam>,
 
     /// The last time the schedule of events in *this guild* was updated
     pub schedule_last_updated: DateTime<Utc>,
