@@ -102,9 +102,6 @@ mod tests {
         let teams = team_service
             .search_teams_by_riot_id("Milk Truck#MILK")
             .await?;
-        for team in &teams {
-            println!("{:?}", team);
-        }
         assert_eq!(teams.len(), 1);
 
         let team = &teams[0];
