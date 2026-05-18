@@ -179,12 +179,12 @@ async fn main() {
 
     // Get the latest version and cache it into a file so cargo rebuilds if we
     // find a new version
+    println!("cargo:rerun-if-changed=.version");
     let version = get_latest_version(&client).await.unwrap();
     if std::fs::read_to_string(".version").is_ok_and(|v| v == version) {
         return;
     }
     std::fs::write(".version", &version).unwrap();
-    println!("cargo:rerun-if-changed=.version");
 
     // Fetch the spec from the api and patch it
     let mut spec = get_spec(&client, &version).await.unwrap();
