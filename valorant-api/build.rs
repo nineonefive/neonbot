@@ -181,10 +181,10 @@ async fn main() {
     // find a new version
     println!("cargo:rerun-if-changed=.version");
     let version = get_latest_version(&client).await.unwrap();
-    if std::fs::read_to_string(".version").is_ok_and(|v| v == version) {
-        return;
+    let existing_version = std::fs::read_to_string(".version");
+    if existing_version.is_err() || existing_version.is_ok_and(|v| v != version) {
+        std::fs::write(".version", &version).unwrap();
     }
-    std::fs::write(".version", &version).unwrap();
 
     // Fetch the spec from the api and patch it
     let mut spec = get_spec(&client, &version).await.unwrap();
@@ -195,13 +195,19 @@ async fn main() {
 
     // Save the patched version to disk and tell cargo to only rebuild this package if
     // this file changes
-    let file = std::fs::File::create(SPEC_PATH).unwrap();
-    serde_json::to_writer_pretty(file, &spec).unwrap();
     println!("cargo:rerun-if-changed={}", SPEC_PATH);
+    let existing_spec = std::fs::read_to_string(SPEC_PATH);
+    if existing_spec.is_err()
+        || existing_spec.is_ok_and(|s| {
+            let value: Value = serde_json::from_str(&s).unwrap();
+            spec != value
+        })
+    {
+        let file = std::fs::File::create(SPEC_PATH).unwrap();
+        serde_json::to_writer_pretty(file, &spec).unwrap();
+    }
 
-    let file = std::fs::File::open(SPEC_PATH).unwrap();
-    let spec: OpenAPI = serde_json::from_reader(file).unwrap();
-
+    let spec: OpenAPI = serde_json::from_value(spec).unwrap();
     let mut generator = progenitor::Generator::default();
     let tokens = generator.generate_tokens(&spec).unwrap();
     let ast = syn::parse2(tokens).unwrap();
