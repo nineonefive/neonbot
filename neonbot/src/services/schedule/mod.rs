@@ -1,27 +1,61 @@
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet},
+    collections::{BinaryHeap, HashMap},
+    sync::Arc,
     time::Duration,
 };
 
-use crate::types::{
-    Affinity, Conference, EventType, MapSelection, PremierEvent, PremierSchedule, Region,
+use crate::{
+    services::GuildService,
+    types::{Affinity, Conference, EventType, PremierEvent, PremierSchedule},
 };
 use anyhow::Result;
-use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Timelike, Utc, Weekday};
+use chrono::{Datelike, NaiveDate, TimeZone, Utc, Weekday};
 use chrono_tz::Tz;
 use moka::future::{Cache, CacheBuilder};
+use serenity::{
+    all::prelude::{Context, EventHandler, TypeMapKey},
+    async_trait,
+    http::Http,
+    model::id::GuildId,
+};
+use tokio::{
+    sync::OnceCell,
+    task::{JoinHandle, JoinSet},
+};
+use tracing::{error, info};
 use uuid::Uuid;
-use valorant_api::types::{Maps, V1PremierSeasonDataItem, V1PremierSeasonDataItemEventsItem};
+use valorant_api::types::{V1PremierSeasonDataItem, V1PremierSeasonDataItemEventsItem};
 
+mod repair;
+use repair::repair;
+
+/// How often the scheduled events are updated in each guild
+const SCHEDULE_UPDATE_INTERVAL: Duration = Duration::from_hours(1);
+
+/// Service that manages the scheduled premier events
 pub struct ScheduleService {
+    /// The valorant API client used to fetch premier season data
     client: valorant_api::Client,
+
+    /// Cache for the raw premier season data
     season_cache: Cache<Affinity, V1PremierSeasonDataItem>,
+
+    /// Cache for the repaired premier schedule data per conference
     schedule_cache: Cache<Conference, PremierSchedule>,
+
+    /// Cache for the timezone of each conference since that's fetched
+    /// from another api endpoint
     tz_cache: Cache<Conference, chrono_tz::Tz>,
+
+    /// The task that periodically updates the schedule cache
+    schedule_update_task: OnceCell<JoinHandle<()>>,
 }
 
+/// Public methods
 impl ScheduleService {
+    /// Creates a new `ScheduleService` with the given valorant API client
     pub fn new(client: valorant_api::Client) -> Self {
+        // These cache durations are long because I don't expect riot to change them often
         Self {
             client,
             season_cache: CacheBuilder::new(100)
@@ -33,12 +67,24 @@ impl ScheduleService {
             tz_cache: CacheBuilder::new(100)
                 .time_to_live(Duration::from_hours(24))
                 .build(),
+            schedule_update_task: OnceCell::new(),
         }
     }
 
-    pub async fn get_current_season(&self, affinity: Affinity) -> Result<V1PremierSeasonDataItem> {
+    /// Fetches the current premier season for a given [`Affinity`].
+    ///
+    /// This method caches calls to `/valorant/v1/premier/seasons/{region}`.
+    ///
+    /// Returns [`Ok`] with the current season data, with [`None`] if there is no current season.
+    pub async fn get_current_season(
+        &self,
+        affinity: Affinity,
+    ) -> Result<Option<V1PremierSeasonDataItem>> {
+        let now = chrono::Utc::now();
         if let Some(season) = self.season_cache.get(&affinity).await {
-            return Ok(season);
+            if season.ends_at.is_some_and(|t| t < now) {
+                return Ok(season.into());
+            }
         }
 
         let seasons = self
@@ -48,32 +94,40 @@ impl ScheduleService {
             .map(|r| r.into_inner().data)
             .map_err(|e| anyhow::anyhow!(e))?;
 
-        let now = chrono::Utc::now();
         for season in seasons {
             if let Some(starts_at) = season.starts_at
                 && let Some(ends_at) = season.ends_at
             {
                 if starts_at <= now && now <= ends_at {
                     self.season_cache.insert(affinity, season.clone()).await;
-                    return Ok(season);
+                    return Ok(season.into());
                 }
             }
         }
 
-        Err(anyhow::anyhow!("No current season found"))
+        Ok(None)
     }
 
-    pub async fn get_schedule(&self, conference: Conference) -> Result<PremierSchedule> {
+    pub async fn get_current_schedule(
+        &self,
+        conference: Conference,
+    ) -> Result<Option<PremierSchedule>> {
+        let now = chrono::Utc::now();
         if let Some(schedule) = self.schedule_cache.get(&conference).await {
-            return Ok(schedule);
+            if schedule.ends_at < now {
+                return Ok(schedule.into());
+            }
         }
 
-        let season = self.get_current_season(conference.into()).await?;
-        let schedule = self.get_schedule_from_season(&season, conference).await?;
-        self.schedule_cache
-            .insert(conference, schedule.clone())
-            .await;
-        Ok(schedule)
+        if let Some(season) = self.get_current_season(conference.into()).await? {
+            let schedule = self.get_schedule_from_season(&season, conference).await?;
+            self.schedule_cache
+                .insert(conference, schedule.clone())
+                .await;
+            return Ok(schedule.into());
+        }
+
+        Ok(None)
     }
 
     pub async fn get_timezone(&self, conference: Conference) -> Result<chrono_tz::Tz> {
@@ -103,7 +157,10 @@ impl ScheduleService {
             .await
             .expect("Should have been cached by now"))
     }
+}
 
+/// Private methods
+impl ScheduleService {
     async fn get_schedule_from_season(
         &self,
         season: &V1PremierSeasonDataItem,
@@ -134,7 +191,6 @@ impl ScheduleService {
                         .as_ref()
                         .ok_or(anyhow::anyhow!("map selection is missing"))?;
 
-                    let key = (id, event.starts_at.unwrap(), event.ends_at.unwrap());
                     let premier_event = PremierEvent {
                         id,
                         event_type: details
@@ -179,156 +235,93 @@ impl ScheduleService {
         let schedule = repair(&schedule, tz);
         Ok(schedule)
     }
-}
 
-#[derive(Debug, Clone, PartialEq)]
-struct EventChain<'a, T: TimeZone = Utc> {
-    events: Vec<&'a PremierEvent<T>>,
-    likelihood: f64,
-}
+    async fn update_guild_events(
+        &self,
+        http: impl AsRef<Http>,
+        guild_service: &GuildService,
+        guild_id: GuildId,
+    ) -> anyhow::Result<()> {
+        // Not sure yet how the guild wouldn't have preferences, but skip processing them
+        let prefs = guild_service.get_preferences(guild_id).await?;
+        if prefs.is_none() {
+            return Ok(());
+        }
 
-impl Ord for EventChain<'_, Tz> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.likelihood
-            .partial_cmp(&other.likelihood)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        let prefs = prefs.unwrap();
+
+        // If they haven't set their team, also skip
+        if prefs.premier_team.is_none() {
+            return Ok(());
+        }
+
+        let conference = prefs.premier_team.unwrap().conference;
+        let schedule = self.get_current_schedule(conference).await?;
+
+        Ok(())
     }
 }
 
-impl PartialOrd for EventChain<'_, Tz> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(
-            self.likelihood
-                .partial_cmp(&other.likelihood)
-                .unwrap_or(std::cmp::Ordering::Equal),
-        )
-    }
-}
+#[async_trait]
+impl EventHandler for ScheduleService {
+    async fn cache_ready(&self, _ctx: Context, _guilds: Vec<GuildId>) {
+        // Wait for the guilds to be loaded before starting this, hence why we're doing this in
+        // the cache_ready handler instead of ready
+        let (guild_service, schedule_service) = {
+            let data = _ctx.data.read().await;
+            let gs = data
+                .get::<GuildService>()
+                .expect("guild service missing")
+                .clone();
+            let ss = data
+                .get::<ScheduleService>()
+                .expect("schedule service missing")
+                .clone();
+            (gs, ss)
+        };
+        let cache = _ctx.cache.clone();
+        let http = _ctx.http.clone();
 
-impl Eq for EventChain<'_, Tz> {}
+        let join_handle = tokio::task::spawn(async move {
+            loop {
+                info!("Updating schedule for all guilds");
+                let mut join_set = JoinSet::new();
+                for &guild_id in cache.guilds().iter() {
+                    let gs = guild_service.clone();
+                    let ss = schedule_service.clone();
+                    let http = http.clone();
+                    join_set.spawn(async move {
+                        if let Err(why) = ss.update_guild_events(&http, &gs, guild_id).await {
+                            error!("Error updating schedule for guild {}: {}", guild_id, why);
+                        }
+                    });
+                }
 
-// Logic to repair the schedule from riot's garbage data
-// idk if this is correct for other regions, plz help 🥺
+                while let Some(res) = join_set.join_next().await {
+                    if let Some(err) = res.err() {
+                        error!("Error updating schedule: {}", err);
+                    }
+                }
 
-fn repair(schedule: &PremierSchedule, tz: Tz) -> PremierSchedule {
-    let localized_events = schedule
-        .events
-        .iter()
-        .map(|e| e.localize(tz))
-        .collect::<Vec<_>>();
-
-    // Group them by date
-    let mut grouped_events: HashMap<NaiveDate, Vec<&PremierEvent<Tz>>> = HashMap::new();
-    localized_events
-        .iter()
-        .map(|e| (e.starts_at.date_naive(), e))
-        .for_each(|(date, event)| {
-            grouped_events.entry(date).or_default().push(event);
+                tokio::time::sleep(SCHEDULE_UPDATE_INTERVAL).await;
+            }
         });
 
-    // Now put them into consecutive buckets for beam search
-    let mut buckets = grouped_events.into_iter().collect::<Vec<_>>();
-    buckets.sort_by_key(|(date, _)| *date);
-
-    let chain = beam_search(buckets.as_slice(), 3);
-    if chain.is_empty() {
-        return schedule.clone();
-    }
-
-    PremierSchedule {
-        events: chain
-            .into_iter()
-            .map(|e| e.to_utc())
-            .collect::<Vec<PremierEvent>>(),
-        championship_points_required: schedule.championship_points_required,
-        starts_at: schedule.starts_at,
-        ends_at: schedule.ends_at,
+        tracing::debug!("Started schedule update task");
+        self.schedule_update_task
+            .set(join_handle)
+            .expect("The task shouldn't have already been set");
     }
 }
 
-/// Returns P(event | chain)
-fn likelihood_model(chain: &[&PremierEvent<Tz>], el: &PremierEvent<Tz>, is_last: bool) -> f64 {
-    let weekday = el.starts_at.weekday();
-
-    // Simple checks
-    match weekday {
-        Weekday::Wed | Weekday::Fri => {
-            if el.event_type != EventType::Scrim {
-                return 0.0;
-            }
-        }
-        Weekday::Thu | Weekday::Sat => {
-            if el.event_type != EventType::League {
-                return 0.0;
-            }
-        }
-        Weekday::Sun => {
-            if el.event_type == EventType::Scrim {
-                return 0.0;
-            }
-        }
-        _ => return 0.0,
-    };
-
-    if el.duration() < Duration::from_hours(1) && el.event_type != EventType::Tournament {
-        return 0.0;
-    }
-
-    // All sequences end with a tournament
-    if is_last {
-        match el.event_type {
-            EventType::Tournament => return 1.0,
-            _ => return 0.0,
-        };
-    }
-
-    1.0
-}
-
-fn beam_search<'a, 'b: 'a>(
-    buckets: &'a [(NaiveDate, Vec<&'b PremierEvent<Tz>>)],
-    beam_width: usize,
-) -> Vec<&'b PremierEvent<Tz>> {
-    let mut beam: Vec<EventChain<'_, Tz>> = buckets[0]
-        .1
-        .iter()
-        .map(|&e| EventChain {
-            events: vec![e],
-            likelihood: likelihood_model(&[], e, false),
-        })
-        .collect();
-
-    for bucket in &buckets[1..] {
-        let is_last = bucket == buckets.last().unwrap();
-        let mut next_generation = BinaryHeap::<EventChain<'_, Tz>>::new();
-        for &candidate in bucket.1.iter() {
-            for chain in &beam {
-                let mut new_events = chain.events.clone();
-                new_events.push(candidate);
-                let likelihood = likelihood_model(&chain.events, candidate, is_last);
-                next_generation.push(EventChain {
-                    events: new_events,
-                    likelihood: likelihood * chain.likelihood,
-                });
-            }
-        }
-
-        beam.clear();
-        beam.extend(next_generation.into_iter().take(beam_width));
-    }
-
-    beam.into_iter()
-        .max_by(|a, b| {
-            a.likelihood
-                .partial_cmp(&b.likelihood)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .map(|c| c.events)
-        .unwrap_or_default()
+impl TypeMapKey for ScheduleService {
+    type Value = Arc<Self>;
 }
 
 #[cfg(test)]
 mod tests {
+    use chrono::Timelike as _;
+
     use crate::types::Affinity;
 
     use super::*;
@@ -351,6 +344,8 @@ mod tests {
             Affinity::Latam,
         ] {
             let season = service.get_current_season(region).await?;
+            assert!(season.is_some());
+            let season = season.unwrap();
             assert!(season.starts_at.unwrap() < now && now < season.ends_at.unwrap());
             assert!(service.season_cache.contains_key(&region));
         }
@@ -365,7 +360,9 @@ mod tests {
         let client = valorant_api::Client::new_with_token(&token);
         let service = ScheduleService::new(client);
         let conference = Conference::NaUsEast;
-        let schedule = service.get_schedule(conference).await?;
+        let schedule = service.get_current_schedule(conference).await?;
+        assert!(schedule.is_some());
+        let schedule = schedule.unwrap();
         assert!(!schedule.events.is_empty());
         assert!(service.schedule_cache.contains_key(&conference));
 

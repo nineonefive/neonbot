@@ -60,4 +60,3 @@ impl From<PremierConferences> for Affinities {
         }
     }
 }
-

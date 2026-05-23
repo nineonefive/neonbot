@@ -1,10 +1,11 @@
+use crate::types::PartialPremierTeam;
 use anyhow::Result;
 use moka::future::{Cache, CacheBuilder};
+use serenity::all::prelude::TypeMapKey;
+use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 use valorant_api::types::{V1PartialPremierTeam, V1PremierTeamData};
-
-use crate::types::PartialPremierTeam;
 
 #[derive(Clone)]
 pub struct TeamService {
@@ -67,6 +68,10 @@ impl TeamService {
 
         Ok(deduped_teams)
     }
+}
+
+impl TypeMapKey for TeamService {
+    type Value = Arc<Self>;
 }
 
 #[cfg(test)]

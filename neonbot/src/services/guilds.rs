@@ -5,7 +5,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use moka::notification::RemovalCause;
 use serde::{Deserialize, Serialize};
 use serenity::{
-    all::prelude::{Context, EventHandler},
+    all::prelude::{Context, EventHandler, TypeMapKey},
     async_trait,
     model::{
         guild::Guild,
@@ -58,6 +58,7 @@ pub struct GuildService {
     cache: moka::future::Cache<GuildId, GuildPreferences>,
 }
 
+/// Public methods
 impl GuildService {
     pub fn new(db: SqlitePool) -> Self {
         let cache_db = db.clone();
@@ -85,38 +86,7 @@ impl GuildService {
         }
     }
 
-    async fn persist_preferences(
-        db: &SqlitePool,
-        guild_id: GuildId,
-        preferences: GuildPreferences,
-    ) -> Result<()> {
-        let json = serde_json::to_value(preferences)?;
-        sqlx::query("update guild_preferences set preferences = $1 where guild_id = $2")
-            .bind(json)
-            .bind(guild_id.get() as i64)
-            .execute(db)
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
-        Ok(())
-    }
-
-    async fn update_preferences(
-        &self,
-        guild_id: GuildId,
-        preferences: GuildPreferences,
-    ) -> Result<()> {
-        self.cache.insert(guild_id, preferences.clone()).await;
-        let json = serde_json::to_value(preferences)?;
-        sqlx::query("update guild_preferences set preferences = $1 where guild_id = $2")
-            .bind(json)
-            .bind(guild_id.get() as i64)
-            .execute(&self.db)
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
-        Ok(())
-    }
-
-    async fn get_preferences(&self, guild_id: GuildId) -> Result<Option<GuildPreferences>> {
+    pub async fn get_preferences(&self, guild_id: GuildId) -> Result<Option<GuildPreferences>> {
         // First check the cache
         if let Some(prefs) = self.cache.get(&guild_id).await {
             return Ok(Some(prefs));
@@ -150,6 +120,40 @@ impl GuildService {
         }
 
         Ok(None)
+    }
+}
+
+/// Private methods
+impl GuildService {
+    async fn persist_preferences(
+        db: &SqlitePool,
+        guild_id: GuildId,
+        preferences: GuildPreferences,
+    ) -> Result<()> {
+        let json = serde_json::to_value(preferences)?;
+        sqlx::query("update guild_preferences set preferences = $1 where guild_id = $2")
+            .bind(json)
+            .bind(guild_id.get() as i64)
+            .execute(db)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+        Ok(())
+    }
+
+    async fn update_preferences(
+        &self,
+        guild_id: GuildId,
+        preferences: GuildPreferences,
+    ) -> Result<()> {
+        self.cache.insert(guild_id, preferences.clone()).await;
+        let json = serde_json::to_value(preferences)?;
+        sqlx::query("update guild_preferences set preferences = $1 where guild_id = $2")
+            .bind(json)
+            .bind(guild_id.get() as i64)
+            .execute(&self.db)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+        Ok(())
     }
 
     async fn create_preferences(&self, guild_id: GuildId) -> Result<GuildPreferences> {
@@ -203,6 +207,10 @@ impl EventHandler for GuildService {
     async fn guild_create(&self, _ctx: Context, guild: Guild, _is_new: Option<bool>) {
         self.maybe_create_preferences(guild.id).await;
     }
+}
+
+impl TypeMapKey for GuildService {
+    type Value = Arc<Self>;
 }
 
 #[cfg(test)]
