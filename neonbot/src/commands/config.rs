@@ -141,7 +141,9 @@ pub async fn edit(ctx: Context<'_>) -> anyhow::Result<()> {
         guild_service
             .update_preferences(guild_id, prefs.clone())
             .await?;
-        handle.edit(ctx, config_embed_reply(&prefs)).await?;
+        handle
+            .edit(ctx, config_embed_reply(&prefs).content(""))
+            .await?;
     } else if !cancelled {
         // timed out
         handle
@@ -178,20 +180,32 @@ pub async fn set_team(
 
     let teams = team_service.search_teams_by_riot_id(team).await;
     if let Err(e) = teams {
-        ctx.say(":x: there was an error searching for the team")
-            .await?;
+        ctx.send(
+            CreateReply::default()
+                .content(":x: there was an error searching for the team")
+                .ephemeral(true),
+        )
+        .await?;
         return Err(anyhow::anyhow!("Failed to search for team: {}", e));
     }
 
     let teams = teams.unwrap();
     if teams.is_empty() {
-        ctx.say(format!(":x: no team found with Riot ID `{}`", team))
-            .await?;
+        ctx.send(
+            CreateReply::default()
+                .content(format!(":x: no team found with Riot ID `{}`", team))
+                .ephemeral(true),
+        )
+        .await?;
         return Ok(());
     }
     if teams.len() > 1 {
-        ctx.say(format!(":x: multiple teams found with Riot ID `{}`", team))
-            .await?;
+        ctx.send(
+            CreateReply::default()
+                .content(format!(":x: multiple teams found with Riot ID `{}`", team))
+                .ephemeral(true),
+        )
+        .await?;
         return Ok(());
     }
 
@@ -278,7 +292,7 @@ fn config_embed_reply(prefs: &GuildPreferences) -> CreateReply {
 
 /// Builds the interactive config form reply for the given preferences.
 fn config_form_reply(prefs: &GuildPreferences) -> CreateReply {
-    let content = "update the server config:\n\
+    let content = ":gear: update the server config:\n\
         - **announcements channel**: new schedule notifications will be posted here\n\
         - **voice channel**: events will be hosted in this voice channel\n\
         - **signup role**: members with this role will be counted towards event signups\n\
