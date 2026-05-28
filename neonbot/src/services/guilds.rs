@@ -15,7 +15,7 @@ use serenity::{
 use sqlx::{Row, SqlitePool};
 use tracing::{error, info};
 
-use crate::types::PartialPremierTeam;
+use crate::types::{Conference, PartialPremierTeam};
 
 /// The preferences for a guild
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -35,6 +35,10 @@ pub struct GuildPreferences {
     /// The premier team this guild is associated with
     pub premier_team: Option<PartialPremierTeam>,
 
+    /// The premier conference this guild competes in. Matches premier_team's conference
+    /// when the team is set, but can also be set independently.
+    pub premier_conference: Option<Conference>,
+
     /// The last time the schedule of events in *this guild* was updated
     pub schedule_last_updated: DateTime<Utc>,
 }
@@ -47,8 +51,19 @@ impl GuildPreferences {
             voice_channel: None,
             signup_role: None,
             premier_team: None,
+            premier_conference: None,
             schedule_last_updated: Utc.timestamp_nanos(0),
         }
+    }
+
+    pub fn premier_conference(&self) -> Option<Conference> {
+        self.premier_conference
+    }
+
+    /// Sets the premier team, updating the conference if the team is `Some`
+    pub fn set_premier_team(&mut self, team: Option<PartialPremierTeam>) {
+        self.premier_conference = team.as_ref().map(|t| t.conference);
+        self.premier_team = team;
     }
 }
 
@@ -121,6 +136,22 @@ impl GuildService {
 
         Ok(None)
     }
+
+    pub async fn update_preferences(
+        &self,
+        guild_id: GuildId,
+        preferences: GuildPreferences,
+    ) -> Result<()> {
+        self.cache.insert(guild_id, preferences.clone()).await;
+        let json = serde_json::to_value(preferences)?;
+        sqlx::query("update guild_preferences set preferences = $1 where guild_id = $2")
+            .bind(json)
+            .bind(guild_id.get() as i64)
+            .execute(&self.db)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+        Ok(())
+    }
 }
 
 /// Private methods
@@ -135,22 +166,6 @@ impl GuildService {
             .bind(json)
             .bind(guild_id.get() as i64)
             .execute(db)
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
-        Ok(())
-    }
-
-    async fn update_preferences(
-        &self,
-        guild_id: GuildId,
-        preferences: GuildPreferences,
-    ) -> Result<()> {
-        self.cache.insert(guild_id, preferences.clone()).await;
-        let json = serde_json::to_value(preferences)?;
-        sqlx::query("update guild_preferences set preferences = $1 where guild_id = $2")
-            .bind(json)
-            .bind(guild_id.get() as i64)
-            .execute(&self.db)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
         Ok(())

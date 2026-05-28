@@ -1,9 +1,8 @@
+use super::Conference;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use valorant_api::types::V1PartialPremierTeam;
-
-use super::{Affinity, Conference, Region};
 
 /// Represents a partial team not fully downloaded from tracker
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -37,6 +36,7 @@ impl TryFrom<V1PartialPremierTeam> for PartialPremierTeam {
         let url = team.customization.map(|c| c.image).flatten();
         let url = Url::parse(&url.ok_or(anyhow::anyhow!("image url is missing"))?)
             .map_err(|e| anyhow::anyhow!(e))?;
+
         Ok(Self {
             id: team.id.ok_or(anyhow::anyhow!("id is missing"))?,
             name: team.name.ok_or(anyhow::anyhow!("name is missing"))?,

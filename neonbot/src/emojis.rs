@@ -1,3 +1,5 @@
+use std::path::Display;
+
 use serenity::model::channel::ReactionType;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -20,6 +22,7 @@ pub enum Emoji {
     Man,
     Costco,
     Alecks,
+    ValorantPremier,
     Discord(String),
 }
 
@@ -116,7 +119,28 @@ impl From<Emoji> for ReactionType {
                 id: 1143687438045302864.into(),
                 name: Some("alecks".to_string()),
             },
+            Emoji::ValorantPremier => ReactionType::Custom {
+                animated: false,
+                id: 1509385911979343874.into(),
+                name: Some("valorant_premier".to_string()),
+            },
             Emoji::Discord(unicode) => ReactionType::Unicode(unicode.to_string()),
+        }
+    }
+}
+
+impl std::fmt::Display for Emoji {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match ReactionType::from(self.clone()) {
+            ReactionType::Unicode(ref unicode) => f.write_str(unicode),
+            ReactionType::Custom {
+                animated: _,
+                id,
+                name,
+            } => {
+                write!(f, "<:{}:{}>", name.as_deref().unwrap_or(""), id)
+            }
+            _ => todo!("Not implemented"),
         }
     }
 }

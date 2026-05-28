@@ -76,9 +76,8 @@ impl TypeMapKey for TeamService {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::Conference;
-
     use super::*;
+    use crate::types::Conference;
 
     #[tokio::test]
     #[ignore] // this endpoint isn't working right now

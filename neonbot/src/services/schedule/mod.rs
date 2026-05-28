@@ -1,15 +1,10 @@
-use std::{
-    collections::{BinaryHeap, HashMap},
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::{
     services::GuildService,
     types::{Affinity, Conference, EventType, PremierEvent, PremierSchedule},
 };
 use anyhow::Result;
-use chrono::{Datelike, NaiveDate, TimeZone, Utc, Weekday};
 use chrono_tz::Tz;
 use moka::future::{Cache, CacheBuilder};
 use serenity::{
@@ -251,11 +246,11 @@ impl ScheduleService {
         let prefs = prefs.unwrap();
 
         // If they haven't set their team, also skip
-        if prefs.premier_team.is_none() {
+        if prefs.premier_conference().is_none() {
             return Ok(());
         }
 
-        let conference = prefs.premier_team.unwrap().conference;
+        let conference = prefs.premier_conference().unwrap();
         let schedule = self.get_current_schedule(conference).await?;
 
         Ok(())
@@ -320,7 +315,7 @@ impl TypeMapKey for ScheduleService {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Timelike as _;
+    use chrono::{Datelike as _, Timelike as _, Weekday};
 
     use crate::types::Affinity;
 

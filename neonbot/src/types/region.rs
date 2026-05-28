@@ -1,8 +1,10 @@
-use chrono_tz::{America, Asia, Australia, Europe, Tz, US};
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
+use valorant_api::types::{Affinities, PremierConferences};
 
 /// Premier team regions
-#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, Clone, Copy, Eq, PartialEq, Debug, Hash)]
 pub enum Region {
     UsEast,
     UsWest,
@@ -16,6 +18,7 @@ pub enum Region {
     Korea,
     EuNorth,
     EuEast,
+    EuWest,
     Dach,
     Ibit,
     France,
@@ -38,6 +41,7 @@ impl Region {
             Region::Korea => "KR_KOREA",
             Region::EuNorth => "EU_NORTH",
             Region::EuEast => "EU_EAST",
+            Region::EuWest => "EU_WEST",
             Region::Dach => "EU_DACH",
             Region::Ibit => "EU_IBIT",
             Region::France => "EU_FRANCE",
@@ -53,63 +57,19 @@ impl Region {
             Region::LatamNorth => "Latin America North",
             Region::LatamSouth => "Latin America South",
             Region::Brazil => "Brazil",
-            Region::AsiaEast => "Asia",
+            Region::AsiaEast => "East Asia",
             Region::Japan => "Japan",
             Region::Oceania => "Oceania",
             Region::AsiaSouth => "South Asia",
             Region::Korea => "Korea",
             Region::EuNorth => "EU North",
             Region::EuEast => "EU East",
+            Region::EuWest => "EU West",
             Region::Dach => "DACH",
             Region::Ibit => "IBIT",
             Region::France => "France",
             Region::MiddleEast => "Middle East",
             Region::Turkiye => "Türkiye",
-        }
-    }
-
-    pub fn tz(&self) -> Tz {
-        match self {
-            Region::UsEast => US::Eastern,
-            Region::UsWest => US::Pacific,
-            Region::LatamNorth => America::New_York, // fixme: not sure this is right
-            Region::LatamSouth => America::Santiago,
-            Region::Brazil => America::Sao_Paulo,
-            Region::AsiaEast => Asia::Taipei,
-            Region::Japan => Asia::Tokyo,
-            Region::Oceania => Australia::Sydney,
-            Region::AsiaSouth => Asia::Kolkata,
-            Region::Korea => Asia::Seoul,
-            Region::EuNorth => Europe::London,
-            Region::EuEast => Europe::Warsaw,
-            Region::Dach => Europe::Berlin,
-            Region::Ibit => Europe::Madrid,
-            Region::France => Europe::Paris,
-            Region::MiddleEast => Asia::Qatar,
-            Region::Turkiye => Europe::Istanbul,
-        }
-    }
-
-    pub fn from_riot_id(s: &str) -> Option<Region> {
-        match s {
-            "NA_US_EAST" => Some(Region::UsEast),
-            "NA_US_WEST" => Some(Region::UsWest),
-            "LATAM_NORTH" => Some(Region::LatamNorth),
-            "LATAM_SOUTH" => Some(Region::LatamSouth),
-            "BR_BRAZIL" => Some(Region::Brazil),
-            "AP_ASIA" => Some(Region::AsiaEast),
-            "AP_JAPAN" => Some(Region::Japan),
-            "AP_OCEANIA" => Some(Region::Oceania),
-            "AP_ASIA_SOUTH" => Some(Region::AsiaSouth),
-            "KR_KOREA" => Some(Region::Korea),
-            "EU_NORTH" => Some(Region::EuNorth),
-            "EU_EAST" => Some(Region::EuEast),
-            "EU_DACH" => Some(Region::Dach),
-            "EU_IBIT" => Some(Region::Ibit),
-            "EU_FRANCE" => Some(Region::France),
-            "EU_MIDDLE_EAST" => Some(Region::MiddleEast),
-            "EU_TURKIYE" => Some(Region::Turkiye),
-            _ => None,
         }
     }
 
@@ -127,6 +87,7 @@ impl Region {
             Region::Korea,
             Region::EuNorth,
             Region::EuEast,
+            Region::EuWest,
             Region::Dach,
             Region::Ibit,
             Region::France,
@@ -135,6 +96,118 @@ impl Region {
         ]
     }
 }
+
+impl FromStr for Region {
+    type Err = UnsupportedRegionError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "NA_US_EAST" => Ok(Region::UsEast),
+            "NA_US_WEST" => Ok(Region::UsWest),
+            "LATAM_NORTH" => Ok(Region::LatamNorth),
+            "LATAM_SOUTH" => Ok(Region::LatamSouth),
+            "BR_BRAZIL" => Ok(Region::Brazil),
+            "AP_ASIA" => Ok(Region::AsiaEast),
+            "AP_JAPAN" => Ok(Region::Japan),
+            "AP_OCEANIA" => Ok(Region::Oceania),
+            "AP_ASIA_SOUTH" => Ok(Region::AsiaSouth),
+            "KR_KOREA" => Ok(Region::Korea),
+            "EU_NORTH" => Ok(Region::EuNorth),
+            "EU_EAST" => Ok(Region::EuEast),
+            "EU_WEST" => Ok(Region::EuWest),
+            "EU_DACH" => Ok(Region::Dach),
+            "EU_IBIT" => Ok(Region::Ibit),
+            "EU_FRANCE" => Ok(Region::France),
+            "EU_MIDDLE_EAST" => Ok(Region::MiddleEast),
+            "EU_TURKIYE" => Ok(Region::Turkiye),
+            _ => Err(UnsupportedRegionError(s.to_owned())),
+        }
+    }
+}
+
+impl TryFrom<PremierConferences> for Region {
+    type Error = UnsupportedRegionError;
+
+    fn try_from(value: PremierConferences) -> Result<Self, Self::Error> {
+        let result = match value {
+            PremierConferences::EuCentralEast => Region::EuEast,
+            PremierConferences::EuWest => Region::EuWest,
+            PremierConferences::EuMiddleEast => Region::MiddleEast,
+            PremierConferences::EuTurkey => Region::Turkiye,
+            PremierConferences::NaUsEast => Region::UsEast,
+            PremierConferences::NaUsWest => Region::UsWest,
+            PremierConferences::LatamNorth => Region::LatamNorth,
+            PremierConferences::LatamSouth => Region::LatamSouth,
+            PremierConferences::BrBrazil => Region::Brazil,
+            PremierConferences::KrKorea => Region::Korea,
+            PremierConferences::ApAsia => Region::AsiaEast,
+            PremierConferences::ApJapan => Region::Japan,
+            PremierConferences::ApOceania => Region::Oceania,
+            PremierConferences::ApSouthAsia => Region::AsiaSouth,
+            PremierConferences::EuTurkeySuper => Region::Turkiye,
+            PremierConferences::EuDach => Region::Dach,
+            PremierConferences::EuIbit => Region::Ibit,
+            PremierConferences::EuFrance => Region::France,
+            PremierConferences::EuNorth => Region::EuNorth,
+            _ => return Err(UnsupportedRegionError(value.to_string())), // all the super variants
+        };
+
+        Ok(result)
+    }
+}
+
+impl From<Region> for PremierConferences {
+    fn from(region: Region) -> Self {
+        match region {
+            Region::AsiaEast => PremierConferences::ApAsia,
+            Region::Japan => PremierConferences::ApJapan,
+            Region::Oceania => PremierConferences::ApOceania,
+            Region::AsiaSouth => PremierConferences::ApSouthAsia,
+            Region::Turkiye => PremierConferences::EuTurkeySuper,
+            Region::Dach => PremierConferences::EuDach,
+            Region::Ibit => PremierConferences::EuIbit,
+            Region::France => PremierConferences::EuFrance,
+            Region::EuNorth => PremierConferences::EuNorth,
+            Region::UsEast => PremierConferences::NaUsEast,
+            Region::UsWest => PremierConferences::NaUsWest,
+            Region::LatamNorth => PremierConferences::LatamNorth,
+            Region::LatamSouth => PremierConferences::LatamSouth,
+            Region::Brazil => PremierConferences::BrBrazil,
+            Region::Korea => PremierConferences::KrKorea,
+            Region::EuEast => PremierConferences::EuEast,
+            Region::EuWest => PremierConferences::EuWest,
+            Region::MiddleEast => PremierConferences::EuMiddleEast,
+        }
+    }
+}
+
+impl From<Region> for Affinities {
+    fn from(region: Region) -> Self {
+        match region {
+            Region::AsiaEast => Affinities::Ap,
+            Region::Japan => Affinities::Ap,
+            Region::Oceania => Affinities::Ap,
+            Region::AsiaSouth => Affinities::Ap,
+            Region::Turkiye => Affinities::Eu,
+            Region::Dach => Affinities::Eu,
+            Region::Ibit => Affinities::Eu,
+            Region::France => Affinities::Eu,
+            Region::EuNorth => Affinities::Eu,
+            Region::UsEast => Affinities::Na,
+            Region::UsWest => Affinities::Na,
+            Region::LatamNorth => Affinities::Latam,
+            Region::LatamSouth => Affinities::Latam,
+            Region::Brazil => Affinities::Br,
+            Region::Korea => Affinities::Kr,
+            Region::EuEast => Affinities::Eu,
+            Region::EuWest => Affinities::Eu,
+            Region::MiddleEast => Affinities::Eu,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnsupportedRegionError(pub String);
 
 #[cfg(test)]
 mod tests {
@@ -150,7 +223,7 @@ mod tests {
     fn test_riot_ids() {
         for &region in Region::all_regions() {
             let region_id = region.riot_id();
-            assert_eq!(Region::from_riot_id(&region_id), Some(region));
+            assert_eq!(str::parse::<Region>(&region_id), Ok(region));
         }
     }
 }
