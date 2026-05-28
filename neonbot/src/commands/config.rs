@@ -232,8 +232,12 @@ async fn get_guild_prefs(
 
     match prefs {
         Err(e) => {
-            ctx.reply(":x: there was an error retrieving your guild's preferences")
-                .await?;
+            ctx.send(
+                CreateReply::default()
+                    .content(":x: there was an error retrieving your guild's preferences")
+                    .ephemeral(true),
+            )
+            .await?;
             Err(anyhow::anyhow!(
                 "failed to get guild preferences for {}: {}",
                 guild_id,
@@ -241,8 +245,12 @@ async fn get_guild_prefs(
             ))
         }
         Ok(None) => {
-            ctx.reply(":x: there was an error retrieving your guild's preferences")
-                .await?;
+            ctx.send(
+                CreateReply::default()
+                    .content(":x: there was an error retrieving your guild's preferences")
+                    .ephemeral(true),
+            )
+            .await?;
             Err(anyhow::anyhow!(
                 "guild preferences not found for {}, should have been set in guild_create",
                 guild_id
